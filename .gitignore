@@ -1,0 +1,10 @@
+.tmp_versions
+.vscode
+
+testbed
+
+*.symvers
+*.order
+*.cmd
+*.ko
+*.o
