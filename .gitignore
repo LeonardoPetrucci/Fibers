@@ -3,6 +3,8 @@
 
 testbed
 
+notes.txt
+
 *.symvers
 *.order
 *.cmd
