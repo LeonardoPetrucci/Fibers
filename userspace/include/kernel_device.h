@@ -1,5 +1,5 @@
-#include "../../include/device.h"
-#include "../../include/operations.h"
+#include "../../module/include/device.h"
+#include "../../module/include/operations.h"
 
 #define FIBERS_DEVICE "/dev/fibers"
 #define FIBER_CONVERT IOCTL_CONVERT_THREAD_TO_FIBER
