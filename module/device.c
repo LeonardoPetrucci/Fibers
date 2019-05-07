@@ -5,14 +5,30 @@
 #include <linux/export.h>
 
 #include "include/device.h"
+#include "include/operations.h"
 
 static int fibers_device_major;
 static struct device* fibers_device = NULL;
 static struct class* fibers_device_class = NULL;
-static struct file_operations fibers_device_operations = {
+
+
+static struct file_operations fibers_device_operations = 
+{
     .owner = THIS_MODULE,
-    //insert operations open, release and unlocked_ioctl
+    .open = fibers_open,
+    .release = fibers_release,
+    .unlocked_ioctl = fibers_ioctl,
 };
+
+static char *devnode(struct device *dev, umode_t *mode)
+{
+    if(mode)
+    {
+        *mode = 0666; //I just open the device in readonly mode. change permissions!
+    }
+
+    return kasprintf(GFP_KERNEL, "%s", dev_name(dev));
+}
 
 int fibers_device_register(void)
 {
@@ -34,7 +50,9 @@ int fibers_device_register(void)
         printk(KERN_ALERT "Fibers: Failed to register a class for fibers device.\n");
         goto error_class;
     }
+    fibers_device_class->devnode = devnode;
     printk(KERN_INFO "Fibers: Successfully registered class %s for fibers device.", CLASS_NAME);
+    
 
     fibers_device = device_create(fibers_device_class, NULL, MKDEV(fibers_device_major, 0), NULL, DEVICE_NAME);
     if(IS_ERR(error = fibers_device))

@@ -1,7 +1,8 @@
 #include <linux/types.h>
 #include <linux/ptrace.h>
 
-typedef struct fiber{
+struct fiber
+{
     void * fiber_data;
     void * exception_list; //unused
     void * stack_base;
@@ -13,10 +14,12 @@ typedef struct fiber{
     void * fls_data //how to manage?
 };
 
-int convert_thread_to_fiber();
-int create_fiber();
-int switch_to_fiber();
-int fls_alloc();
-int fls_get_value();
-int fls_free();
-int fls_set_value();
+typedef pid_t fid_t;
+
+int convert_thread_to_fiber(void);
+int create_fiber(size_t stack_size, void (*entry_point)(void *), void *param);
+int switch_to_fiber(void);
+int fls_alloc(void);
+int fls_get_value(void);
+int fls_free(void);
+int fls_set_value(void);

@@ -1,4 +1,3 @@
-#include "../../module/include/device.h"
 #include "../../module/include/operations.h"
 
 #define FIBERS_DEVICE "/dev/fibers"
