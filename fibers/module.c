@@ -5,24 +5,24 @@
 
 #include "include/device.h"
 
-extern int fibers_device_register(void);
-extern int fibers_device_unregister(void);
+extern int fibers_register_device(void);
+extern int fibers_unregister_device(void);
 
-static int __init fibers_module_init(void)
+static int __init fibers_init_module(void)
 {
-    fibers_device_register();
+    fibers_register_device();
     printk(KERN_INFO "Fibers: Module successfully loaded\n");
     return 0;
 }
 
-static void __exit fibers_module_exit(void)
+static void __exit fibers_exit_module(void)
 {
-    fibers_device_unregister();
+    fibers_unregister_device();
     printk(KERN_INFO "Fibers: Module successfully unloaded\n");
 }
 
-module_init(fibers_module_init);
-module_exit(fibers_module_exit);
+module_init(fibers_init_module);
+module_exit(fibers_exit_module);
 
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Leonardo Petrucci <petrucci.1600764@studenti.uniroma1.it>");
