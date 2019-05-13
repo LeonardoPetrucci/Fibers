@@ -66,7 +66,7 @@ long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
             break;
         
         case IOCTL_CREATE_FIBER:
-            if(!access_ok(VERIFY_READ, &args, sizeof(struct fib_args)))
+            if(!access_ok(VERIFY_READ, args, sizeof(struct fib_args)))
             {
                 error = -1;
                 printk(KERN_INFO "Call Result %ld ACCESS ERROR.\n", error);
@@ -94,7 +94,7 @@ long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
             break;
         
         case IOCTL_FLS_GET_VALUE:
-            if(!access_ok(VERIFY_READ, &args, sizeof(struct fls_args)))
+            if(!access_ok(VERIFY_READ, args, sizeof(struct fls_args)))
             {
                 error = -1;
                 printk(KERN_INFO "Call Result %ld", error);
@@ -112,7 +112,7 @@ long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
             break;
         
         case IOCTL_FLS_FREE:
-            if(!access_ok(VERIFY_READ, &args, sizeof(struct fls_args)))
+            if(!access_ok(VERIFY_READ, args, sizeof(struct fls_args)))
             {
                 error = -1;
                 printk(KERN_INFO "Call Result %ld", error);
@@ -130,7 +130,7 @@ long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
             break;
         
         case IOCTL_FLS_SET_VALUE:
-            if(!access_ok(VERIFY_READ, &args, sizeof(struct fls_args)))
+            if(!access_ok(VERIFY_READ, args, sizeof(struct fls_args)))
             {
                 error = -1;
                 printk(KERN_INFO "Call Result %ld", error);

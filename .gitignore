@@ -5,6 +5,7 @@ testbed
 
 notes.txt
 
+*.mod.c
 *.symvers
 *.order
 *.cmd
