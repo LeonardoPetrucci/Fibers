@@ -1,6 +1,10 @@
 #ifndef TYPES_H
 #define TYPES_H
 
+#ifdef USER
+#include <sys/types.h>
+#endif
+
 #ifdef KERNEL
 #include <linux/types.h>
 
@@ -14,24 +18,21 @@ typedef struct id_s
 
 #endif
 
-#ifdef USER
-#include <sys/types.h>
-#endif
 
 typedef pid_t fid_t;
 
 //use typedef for coherence
-struct fib_args
+typedef struct fib_args_s
 {
     size_t stack_size;
     unsigned long entry_point; //the same tecnique adopted by ioctl for parameters passing
     void * params;
-};
+}fib_args_t;
 
-struct fls_args
+typedef struct fls_args_s
 {
     long idx;
     long long value;
-};
+}fls_args_t;
 
 #endif

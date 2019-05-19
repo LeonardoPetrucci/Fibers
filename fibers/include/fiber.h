@@ -1,19 +1,22 @@
+#ifndef KERNEL
 #define KERNEL
+#endif
 
 #include <linux/ptrace.h>
 #include <linux/hashtable.h>
+#include <linux/spinlock_types.h>
 
 #include "types.h"
 
 #define NAME_LENGHT 256
-#define HASHTABLE_BITS 10
+#define HASH_SIZE 10
 
 struct process
 {
     tgid_t tgid;
     fid_t last_fid;
-    DECLARE_HASHTABLE(thread_hash,HASHTABLE_BITS);
-    DECLARE_HASHTABLE(fiber_hash,HASHTABLE_BITS);
+    DECLARE_HASHTABLE(thread_hash, HASH_SIZE);
+    DECLARE_HASHTABLE(fiber_hash, HASH_SIZE);
     struct hlist_node pnode;
 };
 
@@ -24,34 +27,59 @@ struct thread
     struct hlist_node tnode;
 };
 
-struct fiber_data
+struct fiber_info
 {
     char name[NAME_LENGHT];
-    pid_t parent_pid;
-    atomic_t successful_activations;
-    atomic_t failed_activations;
+    unsigned long successful_activations;
+    unsigned long failed_activations;
     unsigned long running_time;
     unsigned long last_time_active;
 };
 
+struct context
+{
+    struct pt_regs * cpu_context;
+    struct fpu fpu_context;
+};
+
 struct activation_context
 {
-    void * stack_base;
-    size_t stack_limit;
-    struct pt_regs cpu_context;
-    struct fpu fpu_context;
-    void * entry_point;
+    unsigned long entry_point;
+    void * params;
 };
+
+/*
+typedef struct _FIBER                                    
+ {                                                        
+     PVOID FiberData;                                     
+     struct _EXCEPTION_REGISTRATION_RECORD *ExceptionList;
+     PVOID StackBase;                                     
+     PVOID StackLimit;                                    
+     PVOID DeallocationStack;                            
+     CONTEXT FiberContext;                                
+     PVOID Wx86Tib;                                      
+     struct _ACTIVATION_CONTEXT_STACK *ActivationContextStackPointer; 
+     PVOID FlsData;                                       
+     ULONG GuaranteedStackBytes;                         
+     ULONG TebFlags;                                     
+ } FIBER, *PFIBER;
+ */
 
 struct fiber
 {
-    atomic_t state;
     fid_t fid;
-    struct fiber_data data; //my metrics struct 
-    void * exception_list; //unused
-    struct activation_context context;
-    long long * fls;
-    struct hlist_node fnode;
+    struct fiber_info fiber_data; //I will use the fiber_data struct instead of void *, for mantaining both fiber data and metrics data
+    //struct exteption_registration_record * exteption_list;
+    void * stack_base;
+    void * stack_limit;
+    //void * dealloction_stack;
+    struct context fiber_context;
+    pid_t parent_pid; //rename for better understanding
+    struct activation_context fiber_activation_context; //I will use it for mantaining the entry point for the fiber and its related arguments
+    long long * fls_data; //my fls will be an array of long long values, for coherence with my instance of the problem
+    unsigned long guaranteed_stack_bytes; //my stack size
+    //unsigned long teb_flags;
+    struct hlist_node fnode; //for scanning my hashtable
 };
 
 //I want to make a unique function
