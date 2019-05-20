@@ -5,10 +5,12 @@
 #include <linux/ptrace.h>
 #include <linux/hashtable.h>
 #include <linux/spinlock_types.h>
+#include <linux/bitmap.h>
 
 #include "types.h"
 
 #define NAME_LENGHT 256
+#define FLS_SIZE 4096
 #define HASH_SIZE 10
 
 struct process
@@ -38,7 +40,7 @@ struct fiber_info
 
 struct context
 {
-    struct pt_regs * cpu_context;
+    struct pt_regs cpu_context;
     struct fpu fpu_context;
 };
 
@@ -76,7 +78,9 @@ struct fiber
     struct context fiber_context;
     pid_t parent_pid; //rename for better understanding
     struct activation_context fiber_activation_context; //I will use it for mantaining the entry point for the fiber and its related arguments
-    long long * fls_data; //my fls will be an array of long long values, for coherence with my instance of the problem
+    //Prepare a fls_t for mantaining the fls for a fiber.
+    long long fls_data[FLS_SIZE]; //my fls will be an array of long long values, for coherence with my instance of the problem
+    DECLARE_BITMAP(fls_bitmap, FLS_SIZE);
     unsigned long guaranteed_stack_bytes; //my stack size
     //unsigned long teb_flags;
     struct hlist_node fnode; //for scanning my hashtable
