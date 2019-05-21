@@ -53,8 +53,8 @@ int fibers_release(struct inode * inodep, struct file * filep)
 
 long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
 {
-    struct fib_args fibargs;
-    struct fls_args flsargs;
+    fib_args_t fibargs;
+    fls_args_t flsargs;
     id_t current_id = get_current_id();
     long error;
 
@@ -66,14 +66,14 @@ long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
             break;
         
         case IOCTL_CREATE_FIBER:
-            if(!access_ok(VERIFY_READ, args, sizeof(struct fib_args)))
+            if(!access_ok(VERIFY_READ, args, sizeof(fib_args_t)))
             {
                 error = -1;
                 printk(KERN_INFO "Call Result %ld ACCESS ERROR.\n", error);
                 break;
             }
 
-            if(copy_from_user(&fibargs, (void __user *) args, sizeof(struct fib_args))) //I don't like that void pointer...
+            if(copy_from_user(&fibargs, (void __user *) args, sizeof(fib_args_t))) //I don't like that void pointer...
             {
                 error = -1;
                 printk(KERN_INFO "Call Result %ld COPY ERROR.\n", error);
@@ -94,14 +94,14 @@ long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
             break;
         
         case IOCTL_FLS_GET_VALUE:
-            if(!access_ok(VERIFY_READ, args, sizeof(struct fls_args)))
+            if(!access_ok(VERIFY_READ, args, sizeof(fls_args_t)))
             {
                 error = -1;
                 printk(KERN_INFO "Call Result %ld", error);
                 break;
             }
 
-            if(copy_from_user(&flsargs, (void __user *) args, sizeof(struct fls_args))) //I don't like that void pointer...
+            if(copy_from_user(&flsargs, (void __user *) args, sizeof(fls_args_t))) //I don't like that void pointer...
             {
                 error = -1;
                 printk(KERN_INFO "Call Result %ld", error);
@@ -112,14 +112,14 @@ long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
             break;
         
         case IOCTL_FLS_FREE:
-            if(!access_ok(VERIFY_READ, args, sizeof(struct fls_args)))
+            if(!access_ok(VERIFY_READ, args, sizeof(fls_args_t)))
             {
                 error = -1;
                 printk(KERN_INFO "Call Result %ld", error);
                 break;
             }
 
-            if(copy_from_user(&flsargs, (void __user *) args, sizeof(struct fls_args))) //I don't like that void pointer...
+            if(copy_from_user(&flsargs, (void __user *) args, sizeof(fls_args_t))) //I don't like that void pointer...
             {
                 error = -1;
                 printk(KERN_INFO "Call Result %ld", error);
@@ -130,14 +130,14 @@ long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
             break;
         
         case IOCTL_FLS_SET_VALUE:
-            if(!access_ok(VERIFY_READ, args, sizeof(struct fls_args)))
+            if(!access_ok(VERIFY_READ, args, sizeof(fls_args_t)))
             {
                 error = -1;
                 printk(KERN_INFO "Call Result %ld", error);
                 break;
             }
 
-            if(copy_from_user(&flsargs, (void __user *) args, sizeof(struct fls_args))) //I don't like that void pointer...
+            if(copy_from_user(&flsargs, (void __user *) args, sizeof(fls_args_t))) //I don't like that void pointer...
             {
                 error = -1;
                 printk(KERN_INFO "Call Result %ld", error);

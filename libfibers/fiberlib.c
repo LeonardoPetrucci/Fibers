@@ -3,8 +3,11 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stdbool.h>
+#include <strings.h>
 
 #include "include/fiberlib.h"
+
+#define STACK_SIZE 4096
 
 int fib_ioctl(int ioctl_command, unsigned long ioctl_arguments)
 {
@@ -37,11 +40,16 @@ fid_t Create_fiber(size_t stack_size, void (*entry_point)(void *), void * params
 {
     printf("Called CreateFiber.\n");
     int ret;
-    struct fib_args args;
+    fib_args_t args;
 
     args.stack_size = stack_size;
     args.entry_point = (unsigned long) entry_point;
     args.params = params;
+    
+    if (posix_memalign(&args.stack_base, 16, STACK_SIZE)){
+        return -1;
+    }
+    bzero(args.stack_base, STACK_SIZE);
 
     ret = fib_ioctl(FIB_CREATE, (unsigned long) &args);
 
@@ -60,7 +68,7 @@ long long Fls_get_value(long idx)
 {
     printf("Called FlsGetValue.\n");
     int ret;
-    struct fls_args args;
+    fls_args_t args;
 
     args.idx = idx;
 
@@ -73,7 +81,7 @@ bool Fls_free(long idx)
     printf("Called FlsFree.\n");
     int ret;
     
-    struct fls_args args;
+    fls_args_t args;
 
     args.idx = idx;
 
@@ -96,7 +104,7 @@ void Fls_set_value(long idx, long long value)
     printf("Called FlsSetValue.\n");
     int ret;
 
-    struct fls_args args;
+    fls_args_t args;
 
     args.idx = idx;
     args.value = value;

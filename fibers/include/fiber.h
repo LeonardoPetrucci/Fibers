@@ -9,45 +9,25 @@
 
 #include "types.h"
 
-#define NAME_LENGHT 256
-#define FLS_SIZE 4096
-#define HASH_SIZE 10
+
+#define H_SIZE 9
 
 struct process
 {
     tgid_t tgid;
     fid_t last_fid;
-    DECLARE_HASHTABLE(thread_hash, HASH_SIZE);
-    DECLARE_HASHTABLE(fiber_hash, HASH_SIZE);
+    DECLARE_HASHTABLE(thread_hash, H_SIZE);
+    DECLARE_HASHTABLE(fiber_hash, H_SIZE);
+
     struct hlist_node pnode;
 };
 
 struct thread
 {
     pid_t pid;
-    fid_t active_fid;
+    fid_t current_fid;
+
     struct hlist_node tnode;
-};
-
-struct fiber_info
-{
-    char name[NAME_LENGHT];
-    unsigned long successful_activations;
-    unsigned long failed_activations;
-    unsigned long running_time;
-    unsigned long last_time_active;
-};
-
-struct context
-{
-    struct pt_regs cpu_context;
-    struct fpu fpu_context;
-};
-
-struct activation_context
-{
-    unsigned long entry_point;
-    void * params;
 };
 
 /*
@@ -70,19 +50,18 @@ typedef struct _FIBER
 struct fiber
 {
     fid_t fid;
-    struct fiber_info fiber_data; //I will use the fiber_data struct instead of void *, for mantaining both fiber data and metrics data
+    pid_t reference_pid;
+    spinlock_t flock;
+    unsigned long flock_flags;
     //struct exteption_registration_record * exteption_list;
     void * stack_base;
-    void * stack_limit;
-    //void * dealloction_stack;
-    struct context fiber_context;
-    pid_t parent_pid; //rename for better understanding
-    struct activation_context fiber_activation_context; //I will use it for mantaining the entry point for the fiber and its related arguments
-    //Prepare a fls_t for mantaining the fls for a fiber.
-    long long fls_data[FLS_SIZE]; //my fls will be an array of long long values, for coherence with my instance of the problem
-    DECLARE_BITMAP(fls_bitmap, FLS_SIZE);
+    unsigned long stack_limit;
     unsigned long guaranteed_stack_bytes; //my stack size
-    //unsigned long teb_flags;
+    //void * dealloction_stack;
+    fiber_context_t context;
+    fls_t fls;
+    fiber_info_t info;
+    
     struct hlist_node fnode; //for scanning my hashtable
 };
 
@@ -92,7 +71,7 @@ inline struct thread * get_thread(pid_t pid, struct process * p);
 inline struct fiber * get_fiber(fid_t fid, struct process * p);
 
 fid_t do_convert_thread_to_fiber(id_t id);
-fid_t do_create_fiber(id_t id, size_t stack_size, unsigned long entry_point, void * param);
+fid_t do_create_fiber(id_t id, void * stack_base, size_t stack_size, unsigned long entry_point, void * param);
 fid_t do_switch_to_fiber(id_t id, fid_t next_fiber);
 long do_fls_alloc(id_t id);
 long long do_fls_get_value(id_t id, long index);
