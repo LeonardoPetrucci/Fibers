@@ -4,8 +4,8 @@
 
 fid_t Convert_thread_to_fiber(void);
 fid_t Create_fiber(size_t stack_size, void (*entry_point)(void *), void *param);
-void Switch_to_fiber(void *fib);
+fid_t Switch_to_fiber(void *fib);
 long Fls_alloc(void);
 long long Fls_get_value(long idx);
-bool Fls_free(long idx);
-void Fls_set_value(long idx, long long value);
+int Fls_free(long idx);
+long Fls_set_value(long idx, long long value);

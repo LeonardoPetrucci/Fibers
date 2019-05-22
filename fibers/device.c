@@ -55,6 +55,7 @@ long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
 {
     fib_args_t fibargs;
     fls_args_t flsargs;
+    fid_t new_fid;
     id_t current_id = get_current_id();
     long error;
 
@@ -62,94 +63,121 @@ long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
     {
         case IOCTL_CONVERT_THREAD_TO_FIBER:
             error = do_convert_thread_to_fiber(current_id);
-            printk(KERN_INFO "Call Result %ld", error);
+            printk(KERN_INFO "1 - Call Result %ld", error);
             break;
         
         case IOCTL_CREATE_FIBER:
             if(!access_ok(VERIFY_READ, args, sizeof(fib_args_t)))
             {
                 error = -1;
-                printk(KERN_INFO "Call Result %ld ACCESS ERROR.\n", error);
+                printk(KERN_INFO "2 - Call Result %ld ACCESS ERROR.\n", error);
                 break;
             }
 
             if(copy_from_user(&fibargs, (void __user *) args, sizeof(fib_args_t))) //I don't like that void pointer...
             {
                 error = -1;
-                printk(KERN_INFO "Call Result %ld COPY ERROR.\n", error);
+                printk(KERN_INFO "2 - Call Result %ld COPY ERROR.\n", error);
                 break;
             }
 
-            error = do_create_fiber(current_id, fibargs.stack_size, fibargs.entry_point, fibargs.params);
-            printk(KERN_INFO "Call Result %ld", error);
+            error = do_create_fiber(current_id, fibargs.stack_base, fibargs.stack_size, fibargs.entry_point, fibargs.params);
+            printk(KERN_INFO "2 - Call Result %ld", error);
             break;
         
         case IOCTL_SWITCH_TO_FIBER:
-            //error = do_switch_to_fiber(current_id);
+            
+            if(!access_ok(VERIFY_READ, args, sizeof(fid_t)))
+            {
+                error = -1;
+                printk(KERN_INFO "3 - Call Result %ld ACCESS ERROR.\n", error);
+            }
+            if(copy_from_user(&new_fid, (void __user *) args, sizeof(fid_t))) //I don't like that void pointer...
+            {
+                error = -1;
+                printk(KERN_INFO "3 - Call Result %ld COPY ERROR.\n", error);
+                break;
+            }
+
+            error = do_switch_to_fiber(current_id, new_fid);
+            printk(KERN_INFO "3 - Call Result %ld", error);
             break;
         
         case IOCTL_FLS_ALLOC:
             error = do_fls_alloc(current_id);
-            printk(KERN_INFO "Call Result %ld", error);
+            printk(KERN_INFO " 4 - Call Result %ld", error);
             break;
         
         case IOCTL_FLS_GET_VALUE:
             if(!access_ok(VERIFY_READ, args, sizeof(fls_args_t)))
             {
                 error = -1;
-                printk(KERN_INFO "Call Result %ld", error);
+                printk(KERN_INFO "5 - Call Result %ld ACCESS ERROR", error);
                 break;
             }
 
             if(copy_from_user(&flsargs, (void __user *) args, sizeof(fls_args_t))) //I don't like that void pointer...
             {
                 error = -1;
-                printk(KERN_INFO "Call Result %ld", error);
+                printk(KERN_INFO "5 - Call Result %ld KERNEL COPY ERROR", error);
                 break;
             }
             error = do_fls_get_value(current_id, flsargs.idx);
-            printk(KERN_INFO "Call Result %ld", error);
+            if(error < 0)
+            {
+                printk(KERN_INFO " 5 - Call Result %ld IOCTL ERROR", error);
+                break;
+            }
+            //I must report the value onto the userspace!!!
+            flsargs.value = error;
+            if(copy_to_user((void*) args, &flsargs, sizeof(fls_args_t)))
+            {
+                error = -1;
+                printk(KERN_INFO "5 - Call Result %ld USER COPY ERROR", error);
+                break;
+            }
+            printk(KERN_INFO " 5 - Call Result %ld", error);
             break;
         
         case IOCTL_FLS_FREE:
             if(!access_ok(VERIFY_READ, args, sizeof(fls_args_t)))
             {
                 error = -1;
-                printk(KERN_INFO "Call Result %ld", error);
+                printk(KERN_INFO "6 - Call Result %ld ACCESS ERROR", error);
                 break;
             }
 
             if(copy_from_user(&flsargs, (void __user *) args, sizeof(fls_args_t))) //I don't like that void pointer...
             {
                 error = -1;
-                printk(KERN_INFO "Call Result %ld", error);
+                printk(KERN_INFO "6 - Call Result %ld KERNEL COPY ERROR", error);
                 break;
             }
             error = do_fls_free(current_id, flsargs.idx);
-            printk(KERN_INFO "Call Result %ld", error);
+            printk(KERN_INFO "6 - Call Result %ld", error);
             break;
         
         case IOCTL_FLS_SET_VALUE:
             if(!access_ok(VERIFY_READ, args, sizeof(fls_args_t)))
             {
                 error = -1;
-                printk(KERN_INFO "Call Result %ld", error);
+                printk(KERN_INFO "7 - Call Result %ld ACCESS ERROR", error);
                 break;
             }
 
             if(copy_from_user(&flsargs, (void __user *) args, sizeof(fls_args_t))) //I don't like that void pointer...
             {
                 error = -1;
-                printk(KERN_INFO "Call Result %ld", error);
+                printk(KERN_INFO "7 - Call Result %ld  KERNEL COPY ERROR", error);
                 break;
             }
             error = do_fls_set_value(current_id, flsargs.idx, flsargs.value);
-            printk(KERN_INFO "Call Result %ld", error);
+            printk(KERN_INFO "7 - Call Result %ld", error);
             break;
         
         default:
             error = -2;
-            printk(KERN_INFO "Call Result %ld", error);
+            printk(KERN_INFO "0 - Call Result %ld WRONG OPERATION", error);
             break;
     }
 

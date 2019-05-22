@@ -8,7 +8,9 @@
 #ifdef KERNEL
 #include <linux/types.h>
 #define NAME_LENGHT 256
-#define FLS_SIZE 4096
+
+#define FLS_MIN_SIZE 64
+#define FLS_MAX_SIZE 4096
 
 typedef pid_t tgid_t;
 
@@ -40,8 +42,8 @@ typedef struct fiber_context_s
 
 typedef struct fls_s
 {
-    long long data[FLS_SIZE];
-    DECLARE_BITMAP(bmp, FLS_SIZE);
+    long long data[FLS_MAX_SIZE];
+    DECLARE_BITMAP(bmp, FLS_MAX_SIZE);
 }fls_t;
 
 #endif

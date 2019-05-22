@@ -51,7 +51,7 @@ struct fiber
 {
     fid_t fid;
     pid_t reference_pid;
-    spinlock_t flock;
+    //spinlock_t flock;
     unsigned long flock_flags;
     //struct exteption_registration_record * exteption_list;
     void * stack_base;
