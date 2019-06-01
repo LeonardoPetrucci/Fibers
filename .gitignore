@@ -1,8 +1,6 @@
 .tmp_versions
 .vscode
 
-testbed
-
 notes.txt
 
 *.mod.c
