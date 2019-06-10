@@ -46,6 +46,7 @@ int fibers_open(struct inode * inodep, struct file * filep)
 
 int fibers_release(struct inode * inodep, struct file * filep)
 {
+    cleanup_process(current->tgid);
     module_put(THIS_MODULE);
     
     return 0;
@@ -58,31 +59,34 @@ long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
     fid_t new_fid;
     id_t current_id = get_current_id();
     long error;
+    //for testing get_value
+    long long ret;
+    fls_args_t fa;
 
     switch(cmd)
     {
         case IOCTL_CONVERT_THREAD_TO_FIBER:
             error = do_convert_thread_to_fiber(current_id);
-            printk(KERN_INFO "1 - Call Result %ld", error);
+            ////printk(KERN_INFO "1 - Call Result %ld", error);
             break;
         
         case IOCTL_CREATE_FIBER:
             if(!access_ok(VERIFY_READ, args, sizeof(fib_args_t)))
             {
                 error = -1;
-                printk(KERN_INFO "2 - Call Result %ld ACCESS ERROR.\n", error);
+                //printk(KERN_INFO "2 - Call Result %ld ACCESS ERROR.\n", error);
                 break;
             }
 
             if(copy_from_user(&fibargs, (void __user *) args, sizeof(fib_args_t))) //I don't like that void pointer...
             {
                 error = -1;
-                printk(KERN_INFO "2 - Call Result %ld COPY ERROR.\n", error);
+                //printk(KERN_INFO "2 - Call Result %ld COPY ERROR.\n", error);
                 break;
             }
 
             error = do_create_fiber(current_id, fibargs.stack_base, fibargs.stack_size, fibargs.entry_point, fibargs.params);
-            printk(KERN_INFO "2 - Call Result %ld", error);
+            ////printk(KERN_INFO "2 - Call Result %ld", error);
             break;
         
         case IOCTL_SWITCH_TO_FIBER:
@@ -90,95 +94,82 @@ long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
             if(!access_ok(VERIFY_READ, args, sizeof(fid_t)))
             {
                 error = -1;
-                printk(KERN_INFO "3 - Call Result %ld ACCESS ERROR.\n", error);
+                //printk(KERN_INFO "3 - Call Result %ld ACCESS ERROR.\n", error);
             }
             if(copy_from_user(&new_fid, (void __user *) args, sizeof(fid_t))) //I don't like that void pointer...
             {
                 error = -1;
-                printk(KERN_INFO "3 - Call Result %ld COPY ERROR.\n", error);
+                //printk(KERN_INFO "3 - Call Result %ld COPY ERROR.\n", error);
                 break;
             }
 
             error = do_switch_to_fiber(current_id, new_fid);
-            printk(KERN_INFO "3 - Call Result %ld", error);
+            ////printk(KERN_INFO "3 - Call Result %ld", error);
             break;
         
         case IOCTL_FLS_ALLOC:
             error = do_fls_alloc(current_id);
-            printk(KERN_INFO " 4 - Call Result %ld", error);
+            ////printk(KERN_INFO " 4 - Call Result %ld", error);
             break;
         
         case IOCTL_FLS_GET_VALUE:
-            if(!access_ok(VERIFY_READ, args, sizeof(fls_args_t)))
-            {
-                error = -1;
-                printk(KERN_INFO "5 - Call Result %ld ACCESS ERROR", error);
-                break;
+            //TODO
+            if (!access_ok(VERIFY_READ, args, sizeof(fls_args_t))) {
+                        //printk(KERN_DEBUG "%s: Bad pointer to IOCTL\n", KBUILD_MODNAME);
+                        return -EFAULT;
+            }
+            if (copy_from_user(&fa, (void*)args, sizeof(fls_args_t))) {
+                        //printk(KERN_DEBUG "%s: Cannot copy user arguments of IOCTL\n", KBUILD_MODNAME);
+                        return -EFAULT;
             }
 
-            if(copy_from_user(&flsargs, (void __user *) args, sizeof(fls_args_t))) //I don't like that void pointer...
-            {
-                error = -1;
-                printk(KERN_INFO "5 - Call Result %ld KERNEL COPY ERROR", error);
-                break;
+            ret = do_fls_get_value(current_id, fa.idx);
+            if (copy_to_user((void*)fa.value, &ret, sizeof(long long))){
+                    return -EFAULT;
             }
-            error = do_fls_get_value(current_id, flsargs.idx);
-            if(error < 0)
-            {
-                printk(KERN_INFO " 5 - Call Result %ld IOCTL ERROR", error);
-                break;
-            }
-            //I must report the value onto the userspace!!!
-            flsargs.value = error;
-            if(copy_to_user((void*) args, &flsargs, sizeof(fls_args_t)))
-            {
-                error = -1;
-                printk(KERN_INFO "5 - Call Result %ld USER COPY ERROR", error);
-                break;
-            }
-            printk(KERN_INFO " 5 - Call Result %ld", error);
+            error = 0;
             break;
         
         case IOCTL_FLS_FREE:
             if(!access_ok(VERIFY_READ, args, sizeof(fls_args_t)))
             {
                 error = -1;
-                printk(KERN_INFO "6 - Call Result %ld ACCESS ERROR", error);
+                //printk(KERN_INFO "6 - Call Result %ld ACCESS ERROR", error);
                 break;
             }
 
             if(copy_from_user(&flsargs, (void __user *) args, sizeof(fls_args_t))) //I don't like that void pointer...
             {
                 error = -1;
-                printk(KERN_INFO "6 - Call Result %ld KERNEL COPY ERROR", error);
+                //printk(KERN_INFO "6 - Call Result %ld KERNEL COPY ERROR", error);
                 break;
             }
             error = do_fls_free(current_id, flsargs.idx);
-            printk(KERN_INFO "6 - Call Result %ld", error);
+            ////printk(KERN_INFO "6 - Call Result %ld", error);
             break;
         
         case IOCTL_FLS_SET_VALUE:
             if(!access_ok(VERIFY_READ, args, sizeof(fls_args_t)))
             {
                 error = -1;
-                printk(KERN_INFO "7 - Call Result %ld ACCESS ERROR", error);
+                //printk(KERN_INFO "7 - Call Result %ld ACCESS ERROR", error);
                 break;
             }
 
             if(copy_from_user(&flsargs, (void __user *) args, sizeof(fls_args_t))) //I don't like that void pointer...
             {
                 error = -1;
-                printk(KERN_INFO "7 - Call Result %ld  KERNEL COPY ERROR", error);
+                //printk(KERN_INFO "7 - Call Result %ld  KERNEL COPY ERROR", error);
                 break;
             }
             error = do_fls_set_value(current_id, flsargs.idx, flsargs.value);
-            printk(KERN_INFO "7 - Call Result %ld", error);
+            ////printk(KERN_INFO "7 - Call Result %ld", error);
             break;
         
         default:
             error = -2;
-            printk(KERN_INFO "0 - Call Result %ld WRONG OPERATION", error);
-            break;
+            //printk(KERN_INFO "0 - Call Result %ld WRONG OPERATION", error);
+            break;   
     }
 
     return error;
@@ -188,33 +179,33 @@ int fibers_register_device(void)
 {
     void* error;
 
-    printk(KERN_INFO "Fibers: Initializing fibers device registration.\n");
+    ////printk(KERN_INFO "Fibers: Initializing fibers device registration.\n");
 
     fibers_device_major = register_chrdev(0, DEVICE_NAME, &fibers_device_operations);
     if(fibers_device_major < 0)
     {
-        printk(KERN_ALERT "Fibers: Failed to register a major number for fibers device.\n");
+        ////printk(KERN_ALERT "Fibers: Failed to register a major number for fibers device.\n");
         goto error_major;
     }
-    printk(KERN_INFO "Fibers: Successfully registered major number %d for fibers device.\n", fibers_device_major);
+    ////printk(KERN_INFO "Fibers: Successfully registered major number %d for fibers device.\n", fibers_device_major);
 
     fibers_device_class = class_create(THIS_MODULE, CLASS_NAME);
     if(IS_ERR(error = fibers_device_class))
     {
-        printk(KERN_ALERT "Fibers: Failed to register a class for fibers device.\n");
+        ////printk(KERN_ALERT "Fibers: Failed to register a class for fibers device.\n");
         goto error_class;
     }
     fibers_device_class->devnode = devnode;
-    printk(KERN_INFO "Fibers: Successfully registered class %s for fibers device.", CLASS_NAME);
+    ////printk(KERN_INFO "Fibers: Successfully registered class %s for fibers device.", CLASS_NAME);
     
 
     fibers_device = device_create(fibers_device_class, NULL, MKDEV(fibers_device_major, 0), NULL, DEVICE_NAME);
     if(IS_ERR(error = fibers_device))
     {
-        printk(KERN_ALERT "Fibers: Failed to register a device for fibers device.\n");
+        ////printk(KERN_ALERT "Fibers: Failed to register a device for fibers device.\n");
         goto error_device;
     }
-    printk(KERN_INFO "Fibers: Successfully registered device %s for fibers device.\n", DEVICE_NAME);
+    ////printk(KERN_INFO "Fibers: Successfully registered device %s for fibers device.\n", DEVICE_NAME);
 
     return 0;
 

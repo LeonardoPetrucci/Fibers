@@ -11,6 +11,7 @@
 #include <linux/module.h>
 #include <linux/uaccess.h>
 
+#include "fiber.h"
 #include "types.h"
 
 #define DEVICE_NAME "fibers"
@@ -20,6 +21,10 @@ extern int fibers_open(struct inode *, struct file *);
 extern int fibers_release(struct inode *, struct file *);
 extern long fibers_ioctl(struct file *, unsigned int, unsigned long);
 
+extern int cleanup_all(void);
+extern int cleanup_process(tgid_t tgid);
+
+//maybe extern?
 int fibers_register_device(void);
 int fibers_unregister_device(void);
 
@@ -41,4 +46,3 @@ int fibers_unregister_device(void);
 #define IOCTL_FLS_GET_VALUE _IO(IOCTL_NUMBER, 4)
 #define IOCTL_FLS_FREE _IO(IOCTL_NUMBER, 5)
 #define IOCTL_FLS_SET_VALUE _IO(IOCTL_NUMBER, 6)
-

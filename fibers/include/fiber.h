@@ -1,3 +1,6 @@
+#ifndef FIBER_H
+#define FIBER_H
+
 #ifndef KERNEL
 #define KERNEL
 #endif
@@ -6,11 +9,40 @@
 #include <linux/hashtable.h>
 #include <linux/spinlock_types.h>
 #include <linux/bitmap.h>
+#include <linux/slab.h>
 
 #include "types.h"
 
 
 #define H_SIZE 9
+
+/***************************************************************************/
+/*                From dll/win32/kernel32/client/fiber.c                   */
+/***************************************************************************/
+
+/*
+typedef struct _FIBER                                    
+ {                                                        
+     PVOID FiberData;                                     
+     struct _EXCEPTION_REGISTRATION_RECORD *ExceptionList;
+     PVOID StackBase;                                     
+     PVOID StackLimit;                                    
+     PVOID DeallocationStack;                            
+     CONTEXT FiberContext;                                
+     PVOID Wx86Tib;                                      
+     struct _ACTIVATION_CONTEXT_STACK *ActivationContextStackPointer; 
+     PVOID FlsData;                                       
+     ULONG GuaranteedStackBytes;                         
+     ULONG TebFlags;                                     
+ } FIBER, *PFIBER;
+ */
+
+/***************************************************************************/
+/*             Models for fibers and auxiliar parent structs               */
+/***************************************************************************/
+
+int cleanup_all(void);
+int cleanup_process(tgid_t tgid);
 
 struct process
 {
@@ -30,30 +62,13 @@ struct thread
     struct hlist_node tnode;
 };
 
-/*
-typedef struct _FIBER                                    
- {                                                        
-     PVOID FiberData;                                     
-     struct _EXCEPTION_REGISTRATION_RECORD *ExceptionList;
-     PVOID StackBase;                                     
-     PVOID StackLimit;                                    
-     PVOID DeallocationStack;                            
-     CONTEXT FiberContext;                                
-     PVOID Wx86Tib;                                      
-     struct _ACTIVATION_CONTEXT_STACK *ActivationContextStackPointer; 
-     PVOID FlsData;                                       
-     ULONG GuaranteedStackBytes;                         
-     ULONG TebFlags;                                     
- } FIBER, *PFIBER;
- */
-
 struct fiber
 {
     fid_t fid;
-    pid_t reference_pid;
-    //spinlock_t flock;
+    pid_t reference_pid; 
+    spinlock_t flock;
     unsigned long flock_flags;
-    //struct exteption_registration_record * exteption_list;
+    //struct exteption_registration_record * exception_list;
     void * stack_base;
     unsigned long stack_limit;
     unsigned long guaranteed_stack_bytes; //my stack size
@@ -77,3 +92,5 @@ long do_fls_alloc(id_t id);
 long long do_fls_get_value(id_t id, long index);
 long do_fls_free(id_t id, long index);
 long do_fls_set_value(id_t id, long index, long long value);
+
+#endif

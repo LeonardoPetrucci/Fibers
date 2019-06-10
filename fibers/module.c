@@ -4,6 +4,7 @@
 #include <linux/printk.h>
 
 #include "include/device.h"
+#include "include/proc.h"
 
 extern int fibers_register_device(void);
 extern int fibers_unregister_device(void);
@@ -11,12 +12,15 @@ extern int fibers_unregister_device(void);
 static int __init fibers_init_module(void)
 {
     fibers_register_device();
+    register_fiber_kretprobe();
     printk(KERN_INFO "Fibers: Module successfully loaded\n");
     return 0;
 }
 
 static void __exit fibers_exit_module(void)
 {
+    cleanup_all();
+    unregister_fiber_kretprobe();
     fibers_unregister_device();
     printk(KERN_INFO "Fibers: Module successfully unloaded\n");
 }
