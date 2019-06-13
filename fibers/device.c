@@ -7,7 +7,7 @@ static int fibers_device_major;
 static struct device* fibers_device = NULL;
 static struct class* fibers_device_class = NULL;
 
-static struct file_operations fibers_device_operations = 
+static struct file_operations fibers_device_fops = 
 {
     .owner = THIS_MODULE,
     .open = fibers_open,
@@ -15,20 +15,11 @@ static struct file_operations fibers_device_operations =
     .unlocked_ioctl = fibers_ioctl,
 };
 
-inline id_t get_current_id(void)
-{
-    id_t current_id;
-    current_id.pid = current->pid;
-    current_id.tgid = current->tgid;
-
-    return current_id;
-}
-
 static char *devnode(struct device *dev, umode_t *mode)
 {
     if(mode)
     {
-        *mode = 0666; //I just open the device in readonly mode. change permissions!
+        *mode = 0666;
     }
 
     return kasprintf(GFP_KERNEL, "%s", dev_name(dev));
@@ -46,7 +37,10 @@ int fibers_open(struct inode * inodep, struct file * filep)
 
 int fibers_release(struct inode * inodep, struct file * filep)
 {
-    cleanup_process(current->tgid);
+    pid_t tgid;
+    tgid = task_tgid_nr(current);
+    
+    cleanup_process(tgid);
     module_put(THIS_MODULE);
     
     return 0;
@@ -56,76 +50,63 @@ long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
 {
     fib_args_t fibargs;
     fls_args_t flsargs;
-    fid_t new_fid;
-    id_t current_id = get_current_id();
+    pid_t new_fid;
+
     long error;
-    //for testing get_value
-    long long ret;
-    fls_args_t fa;
+    long long read_value;
 
     switch(cmd)
     {
         case IOCTL_CONVERT_THREAD_TO_FIBER:
-            error = do_convert_thread_to_fiber(current_id);
-            ////printk(KERN_INFO "1 - Call Result %ld", error);
+            error = do_convert_thread_to_fiber(current);
             break;
         
         case IOCTL_CREATE_FIBER:
             if(!access_ok(VERIFY_READ, args, sizeof(fib_args_t)))
             {
                 error = -1;
-                //printk(KERN_INFO "2 - Call Result %ld ACCESS ERROR.\n", error);
                 break;
             }
 
-            if(copy_from_user(&fibargs, (void __user *) args, sizeof(fib_args_t))) //I don't like that void pointer...
+            if(copy_from_user(&fibargs, (void __user *) args, sizeof(fib_args_t)))
             {
                 error = -1;
-                //printk(KERN_INFO "2 - Call Result %ld COPY ERROR.\n", error);
                 break;
             }
 
-            error = do_create_fiber(current_id, fibargs.stack_base, fibargs.stack_size, fibargs.entry_point, fibargs.params);
-            ////printk(KERN_INFO "2 - Call Result %ld", error);
+            error = do_create_fiber(current, fibargs.stack_base, fibargs.stack_size, fibargs.entry_point, fibargs.params);
             break;
         
         case IOCTL_SWITCH_TO_FIBER:
             
-            if(!access_ok(VERIFY_READ, args, sizeof(fid_t)))
+            if(!access_ok(VERIFY_READ, args, sizeof(pid_t)))
             {
                 error = -1;
-                //printk(KERN_INFO "3 - Call Result %ld ACCESS ERROR.\n", error);
             }
-            if(copy_from_user(&new_fid, (void __user *) args, sizeof(fid_t))) //I don't like that void pointer...
+            if(copy_from_user(&new_fid, (void __user *) args, sizeof(pid_t)))
             {
                 error = -1;
-                //printk(KERN_INFO "3 - Call Result %ld COPY ERROR.\n", error);
                 break;
             }
 
-            error = do_switch_to_fiber(current_id, new_fid);
-            ////printk(KERN_INFO "3 - Call Result %ld", error);
+            error = do_switch_to_fiber(current, new_fid);
             break;
         
         case IOCTL_FLS_ALLOC:
-            error = do_fls_alloc(current_id);
-            ////printk(KERN_INFO " 4 - Call Result %ld", error);
+            error = do_fls_alloc(current);
             break;
         
         case IOCTL_FLS_GET_VALUE:
-            //TODO
             if (!access_ok(VERIFY_READ, args, sizeof(fls_args_t))) {
-                        //printk(KERN_DEBUG "%s: Bad pointer to IOCTL\n", KBUILD_MODNAME);
-                        return -EFAULT;
+                return -1;
             }
-            if (copy_from_user(&fa, (void*)args, sizeof(fls_args_t))) {
-                        //printk(KERN_DEBUG "%s: Cannot copy user arguments of IOCTL\n", KBUILD_MODNAME);
-                        return -EFAULT;
+            if (copy_from_user(&flsargs, (void*)args, sizeof(fls_args_t))) {
+                return -1;
             }
 
-            ret = do_fls_get_value(current_id, fa.idx);
-            if (copy_to_user((void*)fa.value, &ret, sizeof(long long))){
-                    return -EFAULT;
+            read_value = do_fls_get_value(current, flsargs.idx);
+            if (copy_to_user((void*)flsargs.value, &read_value, sizeof(long long))){
+                return -1;
             }
             error = 0;
             break;
@@ -134,41 +115,34 @@ long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
             if(!access_ok(VERIFY_READ, args, sizeof(fls_args_t)))
             {
                 error = -1;
-                //printk(KERN_INFO "6 - Call Result %ld ACCESS ERROR", error);
                 break;
             }
 
-            if(copy_from_user(&flsargs, (void __user *) args, sizeof(fls_args_t))) //I don't like that void pointer...
+            if(copy_from_user(&flsargs, (void __user *) args, sizeof(fls_args_t)))
             {
                 error = -1;
-                //printk(KERN_INFO "6 - Call Result %ld KERNEL COPY ERROR", error);
                 break;
             }
-            error = do_fls_free(current_id, flsargs.idx);
-            ////printk(KERN_INFO "6 - Call Result %ld", error);
+            error = do_fls_free(current, flsargs.idx);
             break;
         
         case IOCTL_FLS_SET_VALUE:
             if(!access_ok(VERIFY_READ, args, sizeof(fls_args_t)))
             {
                 error = -1;
-                //printk(KERN_INFO "7 - Call Result %ld ACCESS ERROR", error);
                 break;
             }
 
-            if(copy_from_user(&flsargs, (void __user *) args, sizeof(fls_args_t))) //I don't like that void pointer...
+            if(copy_from_user(&flsargs, (void __user *) args, sizeof(fls_args_t))) 
             {
                 error = -1;
-                //printk(KERN_INFO "7 - Call Result %ld  KERNEL COPY ERROR", error);
                 break;
             }
-            error = do_fls_set_value(current_id, flsargs.idx, flsargs.value);
-            ////printk(KERN_INFO "7 - Call Result %ld", error);
+            error = do_fls_set_value(current, flsargs.idx, flsargs.value);
             break;
         
         default:
             error = -2;
-            //printk(KERN_INFO "0 - Call Result %ld WRONG OPERATION", error);
             break;   
     }
 
@@ -179,33 +153,26 @@ int fibers_register_device(void)
 {
     void* error;
 
-    ////printk(KERN_INFO "Fibers: Initializing fibers device registration.\n");
 
-    fibers_device_major = register_chrdev(0, DEVICE_NAME, &fibers_device_operations);
+    fibers_device_major = register_chrdev(0, DEVICE_NAME, &fibers_device_fops);
     if(fibers_device_major < 0)
     {
-        ////printk(KERN_ALERT "Fibers: Failed to register a major number for fibers device.\n");
         goto error_major;
     }
-    ////printk(KERN_INFO "Fibers: Successfully registered major number %d for fibers device.\n", fibers_device_major);
 
     fibers_device_class = class_create(THIS_MODULE, CLASS_NAME);
     if(IS_ERR(error = fibers_device_class))
     {
-        ////printk(KERN_ALERT "Fibers: Failed to register a class for fibers device.\n");
         goto error_class;
     }
     fibers_device_class->devnode = devnode;
-    ////printk(KERN_INFO "Fibers: Successfully registered class %s for fibers device.", CLASS_NAME);
     
 
     fibers_device = device_create(fibers_device_class, NULL, MKDEV(fibers_device_major, 0), NULL, DEVICE_NAME);
     if(IS_ERR(error = fibers_device))
     {
-        ////printk(KERN_ALERT "Fibers: Failed to register a device for fibers device.\n");
         goto error_device;
     }
-    ////printk(KERN_INFO "Fibers: Successfully registered device %s for fibers device.\n", DEVICE_NAME);
 
     return 0;
 

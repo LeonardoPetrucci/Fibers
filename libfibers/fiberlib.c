@@ -1,31 +1,21 @@
-#include <sys/ioctl.h>
-#include <stdio.h>
-#include <unistd.h>
-#include <fcntl.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <strings.h>
-
 #include "include/fiberlib.h"
-
-#define STACK_SIZE 8192
 
 int fd;
 
-fid_t Convert_thread_to_fiber(void)
+pid_t Convert_thread_to_fiber(void)
 {
     int ret;
-    fd = open(FIBERS_DEVICE, O_RDONLY);
+    fd = open(FIBERS_DEVICE, O_RDWR);
     if(fd < 0)
     {
         close(fd);
         return -1;
     }
-    ret = ioctl(fd, FIB_CONVERT, 0);
-    return (fid_t) ret;
+    ret = ioctl(fd, IOCTL_CONVERT_THREAD_TO_FIBER, 0);
+    return (pid_t) ret;
 }
 
-fid_t Create_fiber(size_t stack_size, void (*entry_point)(void *), void * params)
+pid_t Create_fiber(size_t stack_size, void (*entry_point)(void *), void * params)
 {
     int ret;
     fib_args_t fib_args;
@@ -38,21 +28,26 @@ fid_t Create_fiber(size_t stack_size, void (*entry_point)(void *), void * params
     }
 
     bzero(fib_args.stack_base, stack_size);
-    ret = ioctl(fd, FIB_CREATE, (unsigned long) &fib_args);
-    return (fid_t) ret;
+    ret = ioctl(fd, IOCTL_CREATE_FIBER, (unsigned long) &fib_args);
+    return (pid_t) ret;
 }
 
-fid_t Switch_to_fiber(void * fib)
+int Switch_to_fiber(void * fib)
 {
     int ret;
-    ret = ioctl(fd, FIB_SWITCH, (unsigned long) &fib);
-    return (fid_t) ret;
+
+    ret = ioctl(fd, IOCTL_SWITCH_TO_FIBER, (unsigned long) &fib);
+    if(ret < 0)
+    {
+        return -1;
+    }
+    return ret;
 }
 
 long Fls_alloc(void)
 {
     long ret;
-    ret = ioctl(fd, FLS_ALLOC, 0);
+    ret = ioctl(fd, IOCTL_FLS_ALLOC, 0);
     return ret;
 }
 
@@ -63,7 +58,7 @@ long long Fls_get_value(long idx)
     fls_args_t fls_args;
     fls_args.idx = idx;
     fls_args.value = (unsigned long) &read_value;
-    ret = ioctl(fd, FLS_GET, &fls_args);
+    ret = ioctl(fd, IOCTL_FLS_GET_VALUE, &fls_args);
     return read_value;
 }
 
@@ -72,7 +67,7 @@ int Fls_free(long idx)
     int ret;
     fls_args_t fls_args;
     fls_args.idx = idx;
-    ret = ioctl(fd, FLS_FREE, (unsigned long) &fls_args);
+    ret = ioctl(fd, IOCTL_FLS_FREE, (unsigned long) &fls_args);
     return ret;
 }
 
@@ -82,6 +77,6 @@ long Fls_set_value(long idx, long long value)
     fls_args_t fls_args;
     fls_args.idx = idx;
     fls_args.value = value;
-    ret = ioctl(fd, FLS_SET, (unsigned long) &fls_args);
+    ret = ioctl(fd, IOCTL_FLS_SET_VALUE, (unsigned long) &fls_args);
     return ret;
 }

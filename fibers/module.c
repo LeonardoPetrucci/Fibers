@@ -1,3 +1,5 @@
+#define KERNEL
+
 #include <linux/init.h>
 #include <linux/kern_levels.h>
 #include <linux/module.h>

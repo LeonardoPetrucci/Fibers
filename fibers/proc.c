@@ -1,7 +1,9 @@
+#define KERNEL
+
 #include "include/proc.h"
 
-struct file_operations fiber_fops = {
-				.read = fiber_read,
+struct file_operations fibers_proc_fops = {
+	.read = fiber_read,
 };
 
 struct dentry* fiber_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)
@@ -13,6 +15,7 @@ struct dentry* fiber_lookup(struct inode *dir, struct dentry *dentry, unsigned i
 	unsigned long nents;
 	struct pid_entry * pid_fibers;
 
+	p_task = get_proc_task(dir);
 	if(p_task == NULL)
 	{
 		return -1;
@@ -34,8 +37,8 @@ struct dentry* fiber_lookup(struct inode *dir, struct dentry *dentry, unsigned i
 		pid_fibers[i].len = strlen(pid_fibers[i].name);
 		pid_fibers[i].mode = (S_IFREG|(S_IRUGO));
 		pid_fibers[i].iop = NULL;
-		pid_fibers[i].fop = &fiber_fops;
-
+		pid_fibers[i].fop = &fibers_proc_fops;
+		
 		i++;
 	}
 
@@ -50,7 +53,7 @@ int fiber_readdir(struct file *file, struct dir_context *ctx)
 	int ret;
 	struct task_struct * p_task = get_proc_task(file_inode(file));
 	struct process * p;
-	int bkt, i = 0;
+	
 	struct fiber * f;
 	unsigned long nents;
 	struct pid_entry * pid_fibers;
@@ -69,14 +72,15 @@ int fiber_readdir(struct file *file, struct dir_context *ctx)
 	pid_fibers = kmalloc(nents * sizeof(struct pid_entry), GFP_KERNEL);
 	memset(pid_fibers, 0, nents * sizeof(struct pid_entry));
 
+	int bkt, i = 0;
 	hash_for_each_rcu(p->fiber_hash, bkt, f, fnode)
 	{	
 		pid_fibers[i].name = f->info.name;
 		pid_fibers[i].len = strlen(pid_fibers[i].name);
 		pid_fibers[i].mode = (S_IFREG|(S_IRUGO));
 		pid_fibers[i].iop = NULL;
-		pid_fibers[i].fop = &fiber_fops;
-
+		pid_fibers[i].fop = &fibers_proc_fops;
+		
 		i++;
 	}
 
