@@ -11,30 +11,30 @@
 #include "include/fiber.h"
 #include "include/device.h"
 
-DEFINE_HASHTABLE(process_hash, H_SIZE);
+DEFINE_HASHTABLE(groups, H_SIZE);
 DEFINE_SPINLOCK(plock);
 unsigned long plock_flags;
 
-inline struct process * generate_group(pid_t tgid)
+inline struct thread_group * generate_group(pid_t tgid)
 {
-    struct process * p;
+    struct thread_group * g;
 
-    p = (struct process *) kmalloc(sizeof(struct process), GFP_KERNEL);
-    if(!p)
+    g = (struct thread_group *) kmalloc(sizeof(struct thread_group), GFP_KERNEL);
+    if(!g)
     {
         return -1;
     }
-    p->tgid = tgid;
-    //p->last_fid = 0;
-    atomic_set(&(p->last_fid), 0);
-    hash_init(p->thread_hash);
-    hash_init(p->fiber_hash);
-    hash_add_rcu(process_hash, &(p->pnode), p->tgid);
+    g->tgid = tgid;
+    //g->fid_count = 0;
+    atomic_set(&(g->fid_count), 0);
+    hash_init(g->threads);
+    hash_init(g->fibers);
+    hash_add_rcu(groups, &(g->gnode), g->tgid);
 
-    return p;
+    return g;
 }
 
-inline struct thread * generate_thread(struct process * group, pid_t pid)
+inline struct thread * generate_thread(struct thread_group * g, pid_t pid)
 {
     struct thread * t;
 
@@ -45,13 +45,13 @@ inline struct thread * generate_thread(struct process * group, pid_t pid)
     }
     t->pid = pid;
     t->current_fid = NO_FIBERS; 
-    hash_add_rcu(group->thread_hash, &(t->tnode), t->pid);
+    hash_add_rcu(g->threads, &(t->tnode), t->pid);
 
     return t;
 }
 
 
-inline struct fiber * generate_fiber(struct process * group, struct thread * t)
+inline struct fiber * generate_fiber(struct thread_group * g, struct thread * t)
 {
     struct fiber * f;
 
@@ -61,48 +61,48 @@ inline struct fiber * generate_fiber(struct process * group, struct thread * t)
         return -1;
     }
 
-    //f->fid = group->last_fid++;
+    //f->fid = g->fid_count++;
     /*
-    f->fid = atomic_inc_return(&(group->last_fid));
+    f->fid = atomic_inc_return(&(g->fid_count));
     f->flock = __SPIN_LOCK_UNLOCKED(flock);
     f->stack_base = NULL;
     f->stack_limit = 0;
     f->guaranteed_stack_bytes = 0;
     */
-    PREPARE_GENERICS(f, group)
-    CONTEXT(f);
-    FLS(f);
-    INFO(f, t->pid);
+    PREPARE_GENERICS(f, g)
+    PREPARE_CONTEXT(f);
+    PREPARE_FLS(f);
+    PREPARE_INFO(f, t->pid);
 
-    hash_add_rcu(group->fiber_hash, &(f->fnode), f->fid);
+    hash_add_rcu(g->fibers, &(f->fnode), f->fid);
 
     return f;
 }
 
 
-inline struct process * get_process(pid_t tgid)
+inline struct thread_group * get_group(pid_t tgid)
 {
-    struct process * p;
-    hash_for_each_possible_rcu(process_hash, p, pnode, tgid)
+    struct thread_group * g;
+    hash_for_each_possible_rcu(groups, g, gnode, tgid)
     {
-        if(p == NULL)
+        if(!g)
         {
             break;
         }
 
-        if(p->tgid == tgid)
+        if(g->tgid == tgid)
         {
             break;
         }
     }
     
-    return p;
+    return g;
 }
 
-inline struct thread * get_thread(pid_t pid, struct process * p)
+inline struct thread * get_thread(pid_t pid, struct thread_group * g)
 {
     struct thread * t;
-    hash_for_each_possible_rcu(p->thread_hash, t, tnode, pid)
+    hash_for_each_possible_rcu(g->threads, t, tnode, pid)
     {
         if(t == NULL)
         {
@@ -118,10 +118,10 @@ inline struct thread * get_thread(pid_t pid, struct process * p)
     return t;
 }
 
-inline struct fiber * get_fiber(pid_t fid, struct process * p)
+inline struct fiber * get_fiber(pid_t fid, struct thread_group * g)
 {
     struct fiber * f;
-    hash_for_each_possible_rcu(p->fiber_hash, f, fnode, fid)
+    hash_for_each_possible_rcu(g->fibers, f, fnode, fid)
     {
         if(f == NULL)
         {
@@ -145,26 +145,26 @@ pid_t do_convert_thread_to_fiber(struct task_struct * tsk)
     tgid = task_tgid_nr(tsk);
     pid = task_pid_nr(tsk);
 
-    struct process * p;
+    struct thread_group * g;
     struct thread * t;
     struct fiber * f;
 
     spin_lock_irqsave(&plock, plock_flags);
-    p = get_process(tgid);
-    if(!p)
+    g = get_group(tgid);
+    if(!g)
     {
-        p = generate_group(tgid);
+        g = generate_group(tgid);
     }
     spin_unlock_irqrestore(&plock, plock_flags);
     
-    t = get_thread(pid, p);
+    t = get_thread(pid, g);
     if(t)
     {
         return -1;
     }
-    t = generate_thread(p, pid);
+    t = generate_thread(g, pid);
 
-    f = generate_fiber(p, t);
+    f = generate_fiber(g, t);
     
     
     if (!spin_trylock(&(f->flock)) || atomic_read(&f->info.state) != 0)
@@ -189,25 +189,25 @@ pid_t do_create_fiber(struct task_struct * tsk, void * stack_base, size_t stack_
     tgid = task_tgid_nr(tsk);
     pid = task_pid_nr(tsk);
 
-    struct process * p;
+    struct thread_group * g;
     struct thread * t;
     struct fiber * f;
 
-    p = get_process(tgid);
-    if(!p)
+    g = get_group(tgid);
+    if(!g)
     {
 
         return -1;
     }
     
-    t = get_thread(pid, p);
+    t = get_thread(pid, g);
     if(!t)
     {
 
         return -1;
     }
     
-    f = generate_fiber(p, t);
+    f = generate_fiber(g, t);
 
     ALLOC_STACK(f, stack_base, stack_size);
   
@@ -225,7 +225,7 @@ int do_switch_to_fiber(struct task_struct * tsk, pid_t next_fiber)
     tgid = task_tgid_nr(tsk);
     pid = task_pid_nr(tsk);
 
-    struct process * p;
+    struct thread_group * g;
     struct thread * t;
     struct fiber * old_fiber;
     struct fiber * new_fiber;
@@ -235,21 +235,21 @@ int do_switch_to_fiber(struct task_struct * tsk, pid_t next_fiber)
     struct fpu * new_fpu;
     struct fxregs_state * new_fx_regs;
 
-    p = get_process(tgid);
-    if(!p)
+    g = get_group(tgid);
+    if(!g)
     {
 
         return -1;
     }
     
-    t = get_thread(pid, p);
+    t = get_thread(pid, g);
     if(!t)
     {
 
         return -1;
     }
 
-    new_fiber = get_fiber(next_fiber, p);
+    new_fiber = get_fiber(next_fiber, g);
     if(!new_fiber)
     {
 
@@ -263,7 +263,7 @@ int do_switch_to_fiber(struct task_struct * tsk, pid_t next_fiber)
         return -1;
     }
 
-    old_fiber = get_fiber(t->current_fid, p);
+    old_fiber = get_fiber(t->current_fid, g);
     if(!old_fiber)
     {
 
@@ -279,7 +279,7 @@ int do_switch_to_fiber(struct task_struct * tsk, pid_t next_fiber)
     old_fpu = &(old_fiber->context.fpu);
     copy_fxregs_to_kernel(old_fpu);
 
-    old_fiber->info.total_running_active = (current->utime) - (old_fiber->info.last_activation_time);
+    old_fiber->info.total_running_time = (current->utime) - (old_fiber->info.last_activation_time);
     atomic_set(&old_fiber->info.state, 0);
     spin_unlock(&(old_fiber->flock));
 
@@ -302,23 +302,23 @@ long do_fls_alloc(struct task_struct * tsk)
     tgid = task_tgid_nr(tsk);
     pid = task_pid_nr(tsk);
 
-    struct process * p;
+    struct thread_group * g;
     struct thread * t;
     struct fiber * f;
 
-    p = get_process(tgid);
-    if(!p)
+    g = get_group(tgid);
+    if(!g)
     {
         return -1;
     }
     
-    t = get_thread(pid, p);
+    t = get_thread(pid, g);
     if(!t)
     {
         return -1;
     }
     
-    f = get_fiber(t->current_fid, p);
+    f = get_fiber(t->current_fid, g);
     if(!f)
     {
         return -1;
@@ -349,25 +349,25 @@ long long do_fls_get_value(struct task_struct * tsk, long index)
     tgid = task_tgid_nr(tsk);
     pid = task_pid_nr(tsk);
 
-    struct process * p;
+    struct thread_group * g;
     struct thread * t;
     struct fiber * f;
 
-    p = get_process(tgid);
-    if(!p)
+    g = get_group(tgid);
+    if(!g)
     {
 
         return -1;
     }
     
-    t = get_thread(pid, p);
+    t = get_thread(pid, g);
     if(!t)
     {
 
         return -1;
     }
     
-    f = get_fiber(t->current_fid, p);
+    f = get_fiber(t->current_fid, g);
     if(!f)
     {
 
@@ -397,23 +397,23 @@ long do_fls_free(struct task_struct * tsk, long index)
     tgid = task_tgid_nr(tsk);
     pid = task_pid_nr(tsk);
 
-    struct process * p;
+    struct thread_group * g;
     struct thread * t;
     struct fiber * f;
 
-    p = get_process(tgid);
-    if(!p)
+    g = get_group(tgid);
+    if(!g)
     {
         return -1;
     }
     
-    t = get_thread(pid, p);
+    t = get_thread(pid, g);
     if(!t)
     {
         return -1;
     }
     
-    f = get_fiber(t->current_fid, p);
+    f = get_fiber(t->current_fid, g);
     if(!f)
     {
         return -1;
@@ -444,23 +444,23 @@ long do_fls_set_value(struct task_struct * tsk, long index, long long value)
     tgid = task_tgid_nr(tsk);
     pid = task_pid_nr(tsk);
 
-    struct process * p;
+    struct thread_group * g;
     struct thread * t;
     struct fiber * f;
 
-    p = get_process(tgid);
-    if(!p)
+    g = get_group(tgid);
+    if(!g)
     {
         return -1;
     }
     
-    t = get_thread(pid, p);
+    t = get_thread(pid, g);
     if(!t)
     {
         return -1;
     }
     
-    f = get_fiber(t->current_fid, p);
+    f = get_fiber(t->current_fid, g);
     if(!f)
     {
         return -1;
@@ -480,33 +480,33 @@ long do_fls_set_value(struct task_struct * tsk, long index, long long value)
 
 int cleanup_all(void)
 {
-    struct process * p;
+    struct thread_group * g;
     int bkt = 0;
 
-    hash_for_each_rcu(process_hash, bkt, p, pnode){
-        if(p == NULL)
+    hash_for_each_rcu(groups, bkt, g, gnode){
+        if(!g)
         {
             break;
         }
-        cleanup_process(p->tgid);
+        cleanup_process(g->tgid);
     }
     return 0;
 }
 
 int cleanup_process(pid_t tgid)
 {
-    struct process *p;
+    struct thread_group *g;
     struct thread *t;
     struct fiber *f;
     
     int bkt = 0;
 
-    p = get_process(tgid);
-    if (p == NULL) {
+    g = get_group(tgid);
+    if (!g) {
         return 0;
     }
 
-    hash_for_each_rcu(p->thread_hash, bkt, t, tnode){
+    hash_for_each_rcu(g->threads, bkt, t, tnode){
         if(t == NULL) 
         {
             break;
@@ -515,7 +515,7 @@ int cleanup_process(pid_t tgid)
         kfree(t);
     }
 
-    hash_for_each_rcu(p->fiber_hash, bkt, f, fnode){
+    hash_for_each_rcu(g->fibers, bkt, f, fnode){
         if(f == NULL) 
         {
             break;
@@ -524,8 +524,8 @@ int cleanup_process(pid_t tgid)
         kfree(f);
     }
 
-    hash_del_rcu(&(p->pnode));
-    printk(KERN_INFO "Process %d left the party.\n", p->tgid);
-    kfree(p);
+    hash_del_rcu(&(g->gnode));
+    printk(KERN_INFO "Process %d left the party.\n", g->tgid);
+    kfree(g);
     return 0;
 }

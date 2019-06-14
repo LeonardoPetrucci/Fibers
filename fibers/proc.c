@@ -9,29 +9,29 @@ struct file_operations fibers_proc_fops = {
 struct dentry* fiber_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)
 {
 	struct dentry *ret;
-	struct task_struct * p_task = get_proc_task(dir);
-	struct process * p;
+	struct task_struct * task = get_proc_task(dir);
+	struct thread_group * g;
 	struct fiber *f;
 	unsigned long nents;
 	struct pid_entry * pid_fibers;
 
-	p_task = get_proc_task(dir);
-	if(p_task == NULL)
+	task = get_proc_task(dir);
+	if(!task)
 	{
 		return -1;
 	}
-	p = get_process(p_task->tgid);
+	g = get_group(task->tgid);
 
-	if(p == NULL)
+	if(!g)
 	{
 		return 0;
 	}
-	nents = atomic_read(&p->last_fid);
+	nents = atomic_read(&g->fid_count);
 	pid_fibers = kmalloc(nents * sizeof(struct pid_entry), GFP_KERNEL);
 	memset(pid_fibers, 0, nents * sizeof(struct pid_entry));
 
 	int bkt, i = 0;
-	hash_for_each_rcu(p->fiber_hash, bkt, f, fnode)
+	hash_for_each_rcu(g->fibers, bkt, f, fnode)
 	{
 		pid_fibers[i].name = f->info.name;
 		pid_fibers[i].len = strlen(pid_fibers[i].name);
@@ -51,29 +51,29 @@ struct dentry* fiber_lookup(struct inode *dir, struct dentry *dentry, unsigned i
 int fiber_readdir(struct file *file, struct dir_context *ctx)
 {
 	int ret;
-	struct task_struct * p_task = get_proc_task(file_inode(file));
-	struct process * p;
+	struct task_struct * task = get_proc_task(file_inode(file));
+	struct thread_group * g;
 	
 	struct fiber * f;
 	unsigned long nents;
 	struct pid_entry * pid_fibers;
 
-	if(p_task == NULL)
+	if(!task)
 	{
 		return -1;
 	}
-	p = get_process(p_task->tgid);
+	g = get_group(task->tgid);
 
-	if(p == NULL)
+	if(!g)
 	{
 		return 0;
 	}
-	nents = atomic_read(&p->last_fid);
+	nents = atomic_read(&g->fid_count);
 	pid_fibers = kmalloc(nents * sizeof(struct pid_entry), GFP_KERNEL);
 	memset(pid_fibers, 0, nents * sizeof(struct pid_entry));
 
 	int bkt, i = 0;
-	hash_for_each_rcu(p->fiber_hash, bkt, f, fnode)
+	hash_for_each_rcu(g->fibers, bkt, f, fnode)
 	{	
 		pid_fibers[i].name = f->info.name;
 		pid_fibers[i].len = strlen(pid_fibers[i].name);
@@ -94,18 +94,18 @@ ssize_t fiber_read(struct file *filp, char __user *buf, size_t buf_size, loff_t 
 	char fiber_data[INFO_SIZE];
 	int data_lenght, read_bytes;
 
-	struct task_struct * tg_task;
+	struct task_struct * task;
 	pid_t tgid;
 
 	unsigned long read_fid = 0;
 
-	struct process * tg;
+	struct thread_group * tg;
 	struct fiber * f;
 
-	tg_task = get_proc_task(file_inode(filp));
-	tgid = task_tgid_nr(tg_task);
+	task = get_proc_task(file_inode(filp));
+	tgid = task_tgid_nr(task);
 
-	tg = get_process(tgid);
+	tg = get_group(tgid);
 	if(!tg)
 	{
 		return -1;
@@ -127,14 +127,14 @@ ssize_t fiber_read(struct file *filp, char __user *buf, size_t buf_size, loff_t 
 		"Last activation time: %lu\n"\
 		"Total running time: %lu\n\n",
 		f->info.name,
-		f->info.parent_pid,
+		f->info.parent,
 		atomic_read(&f->info.state),
 		f->info.entry_point,
 		f->info.param,
 		f->info.successful_activations,
 		atomic_read(&f->info.failed_activations),
 		f->info.last_activation_time,
-		f->info.total_running_active);
+		f->info.total_running_time);
 
 	data_lenght = strnlen(fiber_data, INFO_SIZE);
 	if(*offset >= data_lenght)

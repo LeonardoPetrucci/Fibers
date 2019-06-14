@@ -10,7 +10,7 @@
 #include <linux/slab.h>
 
 #define NO_FIBERS -1
-#define H_SIZE 9
+#define H_SIZE 8
 #define NAME_LENGHT 256
 #define FLS_MAX_SIZE 4096
 
@@ -26,7 +26,7 @@ typedef struct _FIBER
      PVOID StackBase;                                     
      PVOID StackLimit;                                    
      PVOID DeallocationStack;                            
-     CONTEXT FiberContext;                                
+     PREPARE_CONTEXT FiberContext;                                
      PVOID Wx86Tib;                                      
      struct _ACTIVATION_CONTEXT_STACK *ActivationContextStackPointer; 
      PVOID FlsData;                                       
@@ -39,8 +39,8 @@ typedef struct _FIBER
 /*             Models for fibers and auxiliar parent structs                   */
 /*******************************************************************************/
 
-#define PREPARE_GENERICS(f, p) {    \
-    f->fid = atomic_inc_return(&(group->last_fid)); \
+#define PREPARE_GENERICS(f, g) {    \
+    f->fid = atomic_inc_return(&(g->fid_count)); \
     f->flock = __SPIN_LOCK_UNLOCKED(flock); \
     f->stack_base = NULL;   \
     f->stack_limit = 0; \
@@ -48,12 +48,12 @@ typedef struct _FIBER
 }
 
 //always used
-#define CONTEXT(f) {                                                            \
+#define PREPARE_CONTEXT(f) {                                                            \
     memcpy(&(f->context.regs), task_pt_regs(current), sizeof(struct pt_regs));  \
     copy_fxregs_to_kernel(&(f->context.fpu));                                   \
 }
 
-#define FLS(f) {                                                                \
+#define PREPARE_FLS(f) {                                                                \
     memset(f->fls.data, 0, sizeof(long long) * FLS_MAX_SIZE);                   \
     bitmap_zero(f->fls.bmp, FLS_MAX_SIZE);                                      \
 }
@@ -73,14 +73,14 @@ typedef struct _FIBER
     f->guaranteed_stack_bytes = ss;                                             \
 }
 
-#define INFO(f, pid) {                                                          \
+#define PREPARE_INFO(f, pid) {                                                          \
     snprintf(f->info.name, NAME_LENGHT, "%d", f->fid);                          \
-    f->info.parent_pid = pid;                                                   \
+    f->info.parent = pid;                                                   \
     atomic_set(&f->info.state, 0);                                                          \
     f->info.successful_activations = 0;                                         \
     atomic_set(&f->info.failed_activations, 0);                                             \
     f->info.last_activation_time = 0;                                           \
-    f->info.total_running_active = 0;                                           \
+    f->info.total_running_time = 0;                                           \
     f->info.entry_point = task_pt_regs(current)->ip;                            \
     f->info.param = (void *) task_pt_regs(current)->di;                                                       \
 }
@@ -88,19 +88,19 @@ typedef struct _FIBER
 #define ACTIVATE_FIBER_FROM_THREAD(f, t) {                                      \
     atomic_set(&f->info.state, t->pid);                                                     \
     f->info.successful_activations++;                                           \
-    f->info.last_activation_time = current->utime;                              \
+    f->info.last_activation_time = (unsigned long) current->utime;                              \
     t->current_fid = f->fid;                                                    \
 }
 
 
-struct process
+struct thread_group
 {
     pid_t tgid;
-    atomic_t last_fid;
-    DECLARE_HASHTABLE(thread_hash, H_SIZE);
-    DECLARE_HASHTABLE(fiber_hash, H_SIZE);
+    atomic_t fid_count;
+    DECLARE_HASHTABLE(threads, H_SIZE);
+    DECLARE_HASHTABLE(fibers, H_SIZE);
 
-    struct hlist_node pnode;
+    struct hlist_node gnode;
 };
 
 struct thread
@@ -113,12 +113,12 @@ struct thread
 
 typedef struct info_s {
     char name[NAME_LENGHT];
-    pid_t parent_pid;
+    pid_t parent;
     atomic_t state;
     unsigned long successful_activations;
     atomic_t failed_activations;
     unsigned long last_activation_time;
-    unsigned long total_running_active;
+    unsigned long total_running_time;
     unsigned long entry_point;
     void * param;
 
@@ -132,7 +132,8 @@ typedef struct context_s {
 
 typedef struct fls_s {
     long long data[FLS_MAX_SIZE];
-    DECLARE_BITMAP(bmp, FLS_MAX_SIZE);
+    DECLARE_BITMAP(bmp, FLS_MAX_SIZE)
+    ;
 
 }fls_t;
 
@@ -152,13 +153,13 @@ struct fiber
     struct hlist_node fnode;
 };
 
-inline struct process * get_process(pid_t tgid);
-inline struct thread * get_thread(pid_t pid, struct process * p);
-inline struct fiber * get_fiber(pid_t fid, struct process * p);
+inline struct thread_group * get_group(pid_t tgid);
+inline struct thread * get_thread(pid_t pid, struct thread_group * g);
+inline struct fiber * get_fiber(pid_t fid, struct thread_group * g);
 
-inline struct process * generate_group(pid_t tgid);
-inline struct thread * generate_thread(struct process * group, pid_t pid);
-inline struct fiber * generate_fiber(struct process * group, struct thread * t);
+inline struct thread_group * generate_group(pid_t tgid);
+inline struct thread * generate_thread(struct thread_group * g, pid_t pid);
+inline struct fiber * generate_fiber(struct thread_group * g, struct thread * t);
 
 pid_t do_convert_thread_to_fiber(struct task_struct * tsk);
 pid_t do_create_fiber(struct task_struct * tsk, void * stack_base, size_t stack_size, unsigned long entry_point, void * param);

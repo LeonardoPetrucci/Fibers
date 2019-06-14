@@ -73,13 +73,13 @@ int handler_lookup(struct kretprobe_instance *k, struct pt_regs *regs)
 {
 
 	struct tgid_lookup_data *data = (struct tgid_lookup_data *)(k->data);
-	struct process *p;
+	struct thread_group *g;
 	//unsigned long flags;
 	unsigned int pos;
 	struct task_struct * task = get_pid_task(proc_pid(data->inode), PIDTYPE_PID);
 
-	p = get_process(task->tgid);
-	if (p == NULL)
+	g = get_group(task->tgid);
+	if (!g)
 	{
 		return 0;
 	}
@@ -112,7 +112,7 @@ int entry_handler_readdir(struct kretprobe_instance *k, struct pt_regs *regs)
 int handler_readdir(struct kretprobe_instance *k, struct pt_regs *regs)
 {
 	struct tgid_dir_data *data = (struct tgid_dir_data *)(k->data);
-	struct process *p;
+	struct thread_group *g;
 	unsigned long flags;
 	unsigned int pos;
 	struct task_struct * task = get_pid_task(proc_pid(file_inode(data->file)), PIDTYPE_PID);
@@ -127,8 +127,8 @@ int handler_readdir(struct kretprobe_instance *k, struct pt_regs *regs)
 		spin_unlock_irqrestore(&check_nents, flags);
 	}
 
-	p = get_process(task->tgid);
-	if (p == NULL)
+	g = get_group(task->tgid);
+	if (!g)
 	{
 		return 0;
 	}
