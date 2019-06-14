@@ -25,7 +25,8 @@ inline struct process * generate_group(pid_t tgid)
         return -1;
     }
     p->tgid = tgid;
-    p->last_fid = 0;
+    //p->last_fid = 0;
+    atomic_set(&(p->last_fid), 0);
     hash_init(p->thread_hash);
     hash_init(p->fiber_hash);
     hash_add_rcu(process_hash, &(p->pnode), p->tgid);
@@ -60,12 +61,15 @@ inline struct fiber * generate_fiber(struct process * group, struct thread * t)
         return -1;
     }
 
-    f->fid = group->last_fid++;
+    //f->fid = group->last_fid++;
+    /*
+    f->fid = atomic_inc_return(&(group->last_fid));
     f->flock = __SPIN_LOCK_UNLOCKED(flock);
     f->stack_base = NULL;
     f->stack_limit = 0;
     f->guaranteed_stack_bytes = 0;
-
+    */
+    PREPARE_GENERICS(f, group)
     CONTEXT(f);
     FLS(f);
     INFO(f, t->pid);
@@ -163,9 +167,9 @@ pid_t do_convert_thread_to_fiber(struct task_struct * tsk)
     f = generate_fiber(p, t);
     
     
-    if (!spin_trylock(&(f->flock)) || f->info.state != 0)
+    if (!spin_trylock(&(f->flock)) || atomic_read(&f->info.state) != 0)
     {
-        f->info.failed_activations++;
+        atomic_inc(&f->info.failed_activations);
         return -1;
     }
     
@@ -252,9 +256,9 @@ int do_switch_to_fiber(struct task_struct * tsk, pid_t next_fiber)
         return -1;
     }
 
-    if (!spin_trylock(&(new_fiber->flock)) || new_fiber->info.state != 0)
+    if (!spin_trylock(&(new_fiber->flock)) || atomic_read(&new_fiber->info.state) != 0)
     {
-        new_fiber->info.failed_activations++;
+        atomic_inc(&new_fiber->info.failed_activations);
         printk(KERN_INFO "Thread %d cannot switch from fiber %d to fiber %d (Used by thread %d)",t->pid, t->current_fid, new_fiber->fid, new_fiber->info.state);
         return -1;
     }
@@ -276,7 +280,7 @@ int do_switch_to_fiber(struct task_struct * tsk, pid_t next_fiber)
     copy_fxregs_to_kernel(old_fpu);
 
     old_fiber->info.total_running_active = (current->utime) - (old_fiber->info.last_activation_time);
-    old_fiber->info.state = 0;
+    atomic_set(&old_fiber->info.state, 0);
     spin_unlock(&(old_fiber->flock));
 
     memcpy(old_regs, &(new_fiber->context.regs), sizeof(struct pt_regs));

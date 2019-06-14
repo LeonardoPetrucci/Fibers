@@ -39,6 +39,14 @@ typedef struct _FIBER
 /*             Models for fibers and auxiliar parent structs                   */
 /*******************************************************************************/
 
+#define PREPARE_GENERICS(f, p) {    \
+    f->fid = atomic_inc_return(&(group->last_fid)); \
+    f->flock = __SPIN_LOCK_UNLOCKED(flock); \
+    f->stack_base = NULL;   \
+    f->stack_limit = 0; \
+    f->guaranteed_stack_bytes = 0;  \
+}
+
 //always used
 #define CONTEXT(f) {                                                            \
     memcpy(&(f->context.regs), task_pt_regs(current), sizeof(struct pt_regs));  \
@@ -68,17 +76,17 @@ typedef struct _FIBER
 #define INFO(f, pid) {                                                          \
     snprintf(f->info.name, NAME_LENGHT, "%d", f->fid);                          \
     f->info.parent_pid = pid;                                                   \
-    f->info.state = 0;                                                          \
+    atomic_set(&f->info.state, 0);                                                          \
     f->info.successful_activations = 0;                                         \
-    f->info.failed_activations = 0;                                             \
+    atomic_set(&f->info.failed_activations, 0);                                             \
     f->info.last_activation_time = 0;                                           \
     f->info.total_running_active = 0;                                           \
     f->info.entry_point = task_pt_regs(current)->ip;                            \
-    f->info.param = NULL;                                                       \
+    f->info.param = (void *) task_pt_regs(current)->di;                                                       \
 }
 
 #define ACTIVATE_FIBER_FROM_THREAD(f, t) {                                      \
-    f->info.state = t->pid;                                                     \
+    atomic_set(&f->info.state, t->pid);                                                     \
     f->info.successful_activations++;                                           \
     f->info.last_activation_time = current->utime;                              \
     t->current_fid = f->fid;                                                    \
@@ -88,7 +96,7 @@ typedef struct _FIBER
 struct process
 {
     pid_t tgid;
-    pid_t last_fid;
+    atomic_t last_fid;
     DECLARE_HASHTABLE(thread_hash, H_SIZE);
     DECLARE_HASHTABLE(fiber_hash, H_SIZE);
 
@@ -106,9 +114,9 @@ struct thread
 typedef struct info_s {
     char name[NAME_LENGHT];
     pid_t parent_pid;
-    int state;
+    atomic_t state;
     unsigned long successful_activations;
-    unsigned long failed_activations;
+    atomic_t failed_activations;
     unsigned long last_activation_time;
     unsigned long total_running_active;
     unsigned long entry_point;
