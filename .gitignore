@@ -7,6 +7,6 @@ notes.txt
 *.symvers
 *.order
 *.cmd
-*.ko
+
 *.o
 *.pyc
