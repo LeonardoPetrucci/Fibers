@@ -8,30 +8,30 @@ struct file_operations fibers_proc_fops = {
 
 struct dentry* fiber_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)
 {
-	struct dentry *ret;
+	struct dentry * ret;
 	struct task_struct * task = get_proc_task(dir);
-	struct thread_group * g;
-	struct fiber *f;
+	struct thread_group * tg;
+	struct fiber * f;
 	unsigned long nents;
 	struct pid_entry * pid_fibers;
 
 	task = get_proc_task(dir);
 	if(!task)
 	{
-		return -1;
+		return -ESRCH;
 	}
-	g = get_group(task->tgid);
+	tg = get_group(task->tgid);
 
-	if(!g)
+	if(!tg)
 	{
 		return 0;
 	}
-	nents = atomic_read(&g->fid_count);
+	nents = atomic_read(&tg->fid_count);
 	pid_fibers = kmalloc(nents * sizeof(struct pid_entry), GFP_KERNEL);
 	memset(pid_fibers, 0, nents * sizeof(struct pid_entry));
 
 	int bkt, i = 0;
-	hash_for_each_rcu(g->fibers, bkt, f, fnode)
+	hash_for_each_rcu(tg->fibers, bkt, f, fnode)
 	{
 		pid_fibers[i].name = f->info.name;
 		pid_fibers[i].len = strlen(pid_fibers[i].name);
@@ -52,7 +52,7 @@ int fiber_readdir(struct file *file, struct dir_context *ctx)
 {
 	int ret;
 	struct task_struct * task = get_proc_task(file_inode(file));
-	struct thread_group * g;
+	struct thread_group * tg;
 	
 	struct fiber * f;
 	unsigned long nents;
@@ -60,20 +60,20 @@ int fiber_readdir(struct file *file, struct dir_context *ctx)
 
 	if(!task)
 	{
-		return -1;
+		return -ESRCH;
 	}
-	g = get_group(task->tgid);
+	tg = get_group(task->tgid);
 
-	if(!g)
+	if(!tg)
 	{
 		return 0;
 	}
-	nents = atomic_read(&g->fid_count);
+	nents = atomic_read(&tg->fid_count);
 	pid_fibers = kmalloc(nents * sizeof(struct pid_entry), GFP_KERNEL);
 	memset(pid_fibers, 0, nents * sizeof(struct pid_entry));
 
 	int bkt, i = 0;
-	hash_for_each_rcu(g->fibers, bkt, f, fnode)
+	hash_for_each_rcu(tg->fibers, bkt, f, fnode)
 	{	
 		pid_fibers[i].name = f->info.name;
 		pid_fibers[i].len = strlen(pid_fibers[i].name);
@@ -108,14 +108,14 @@ ssize_t fiber_read(struct file *filp, char __user *buf, size_t buf_size, loff_t 
 	tg = get_group(tgid);
 	if(!tg)
 	{
-		return -1;
+		return -ESRCH;
 	}
 	kstrtoul(filp->f_path.dentry->d_name.name, DECIMAL, &read_fid);
 
 	f = get_fiber(read_fid, tg);
 	if(!f)
 	{
-		return -1;
+		return -ESRCH;
 	}
 	snprintf(fiber_data, INFO_SIZE,
 		"Name (Fiber ID): %s\n"\

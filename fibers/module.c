@@ -16,7 +16,7 @@ static int __init fibers_init_module(void)
     fibers_register_device();
     register_fiber_kretprobe();
     printk(KERN_INFO "Fibers: Module successfully loaded\n");
-    return 0;
+    return SUCCESS;
 }
 
 static void __exit fibers_exit_module(void)

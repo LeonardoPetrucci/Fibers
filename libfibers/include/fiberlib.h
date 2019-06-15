@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <strings.h>
 #include <sys/syscall.h>
+#include <errno.h>
 
 #define gettid() syscall(SYS_gettid)
 #define STACK_SIZE 8192

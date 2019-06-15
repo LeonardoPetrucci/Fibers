@@ -29,10 +29,10 @@ int fibers_open(struct inode * inodep, struct file * filep)
 {
     if(!try_module_get(THIS_MODULE))
     {
-        return -1;
+        return -ENOENT;
     }
 
-    return 0;
+    return SUCCESS;
 }
 
 int fibers_release(struct inode * inodep, struct file * filep)
@@ -43,7 +43,7 @@ int fibers_release(struct inode * inodep, struct file * filep)
     cleanup_process(tgid);
     module_put(THIS_MODULE);
     
-    return 0;
+    return SUCCESS;
 }
 
 long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
@@ -64,13 +64,13 @@ long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
         case IOCTL_CREATE_FIBER:
             if(!access_ok(VERIFY_READ, args, sizeof(fib_args_t)))
             {
-                error = -1;
+                error = -EINVAL;
                 break;
             }
 
             if(copy_from_user(&fibargs, (void __user *) args, sizeof(fib_args_t)))
             {
-                error = -1;
+                error = -EINVAL;
                 break;
             }
 
@@ -81,11 +81,11 @@ long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
             
             if(!access_ok(VERIFY_READ, args, sizeof(pid_t)))
             {
-                error = -1;
+                error = -EINVAL;
             }
             if(copy_from_user(&new_fid, (void __user *) args, sizeof(pid_t)))
             {
-                error = -1;
+                error = -EINVAL;
                 break;
             }
 
@@ -98,15 +98,15 @@ long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
         
         case IOCTL_FLS_GET_VALUE:
             if (!access_ok(VERIFY_READ, args, sizeof(fls_args_t))) {
-                return -1;
+                return -EINVAL;
             }
             if (copy_from_user(&flsargs, (void*)args, sizeof(fls_args_t))) {
-                return -1;
+                return -EINVAL;
             }
 
             read_value = do_fls_get_value(current, flsargs.idx);
             if (copy_to_user((void*)flsargs.value, &read_value, sizeof(long long))){
-                return -1;
+                return -EINVAL;
             }
             error = 0;
             break;
@@ -114,13 +114,13 @@ long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
         case IOCTL_FLS_FREE:
             if(!access_ok(VERIFY_READ, args, sizeof(fls_args_t)))
             {
-                error = -1;
+                error = -EINVAL;
                 break;
             }
 
             if(copy_from_user(&flsargs, (void __user *) args, sizeof(fls_args_t)))
             {
-                error = -1;
+                error = -EINVAL;
                 break;
             }
             error = do_fls_free(current, flsargs.idx);
@@ -129,20 +129,20 @@ long fibers_ioctl(struct file * filep, unsigned int cmd, unsigned long args)
         case IOCTL_FLS_SET_VALUE:
             if(!access_ok(VERIFY_READ, args, sizeof(fls_args_t)))
             {
-                error = -1;
+                error = -EINVAL;
                 break;
             }
 
             if(copy_from_user(&flsargs, (void __user *) args, sizeof(fls_args_t))) 
             {
-                error = -1;
+                error = -EINVAL;
                 break;
             }
             error = do_fls_set_value(current, flsargs.idx, flsargs.value);
             break;
         
         default:
-            error = -2;
+            error = -EPERM;
             break;   
     }
 
@@ -174,7 +174,7 @@ int fibers_register_device(void)
         goto error_device;
     }
 
-    return 0;
+    return SUCCESS;
 
 error_device:
     class_destroy(fibers_device_class);
@@ -194,5 +194,5 @@ int fibers_unregister_device(void)
     class_destroy(fibers_device_class);
     unregister_chrdev(fibers_device_major, DEVICE_NAME); 
     
-    return 0;
+    return SUCCESS;
 }

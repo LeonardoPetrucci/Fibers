@@ -46,14 +46,14 @@ int register_fiber_kretprobe(void)
 	register_kretprobe(&proc_readdir_krp);
 	register_kretprobe(&proc_lookup_krp);
 
-	return 0;
+	return SUCCESS;
 }
 
 int unregister_fiber_kretprobe(void)
 {
 	unregister_kretprobe(&proc_readdir_krp);
 	unregister_kretprobe(&proc_lookup_krp);
-	return 0;
+	return SUCCESS;
 }
 
 int entry_handler_lookup(struct kretprobe_instance *k, struct pt_regs *regs)
@@ -73,13 +73,13 @@ int handler_lookup(struct kretprobe_instance *k, struct pt_regs *regs)
 {
 
 	struct tgid_lookup_data *data = (struct tgid_lookup_data *)(k->data);
-	struct thread_group *g;
+	struct thread_group *tg;
 	//unsigned long flags;
 	unsigned int pos;
 	struct task_struct * task = get_pid_task(proc_pid(data->inode), PIDTYPE_PID);
 
-	g = get_group(task->tgid);
-	if (!g)
+	tg = get_group(task->tgid);
+	if (!tg)
 	{
 		return 0;
 	}
@@ -112,7 +112,7 @@ int entry_handler_readdir(struct kretprobe_instance *k, struct pt_regs *regs)
 int handler_readdir(struct kretprobe_instance *k, struct pt_regs *regs)
 {
 	struct tgid_dir_data *data = (struct tgid_dir_data *)(k->data);
-	struct thread_group *g;
+	struct thread_group *tg;
 	unsigned long flags;
 	unsigned int pos;
 	struct task_struct * task = get_pid_task(proc_pid(file_inode(data->file)), PIDTYPE_PID);
@@ -127,8 +127,8 @@ int handler_readdir(struct kretprobe_instance *k, struct pt_regs *regs)
 		spin_unlock_irqrestore(&check_nents, flags);
 	}
 
-	g = get_group(task->tgid);
-	if (!g)
+	tg = get_group(task->tgid);
+	if (!tg)
 	{
 		return 0;
 	}
