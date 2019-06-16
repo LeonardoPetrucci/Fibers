@@ -38,7 +38,7 @@ def benchmark_fibers(exec_file, n):
 
     return cpu, cpu_times, memory, context_switch, fibers_time
 
-def benchmark(BASE_FIBERS, ITERATIONS):
+def benchmark(num_fibers, num_iterations):
 
     kernel_cpu_list = []
     kernel_cpu_time_list = []
@@ -53,26 +53,32 @@ def benchmark(BASE_FIBERS, ITERATIONS):
     user_fibers_time_list = []
 
     print("Testing performance of Kernel-implemented fibers...\n")
-    for i in range(1, ITERATIONS + 1):
-        print("Iteration number " + str(i) + ", fibers used: " + str(BASE_FIBERS * i))
-        cpu, cpu_time, memory, context_switch, fibers_time = benchmark_fibers("./kernel_test", BASE_FIBERS * i)
+    for i in range(1, num_iterations + 1):
+        print("Relaxing cpu...")
+        time.sleep(5)
+        print("Iteration number " + str(i) + ", fibers used: " + str(num_fibers * i))
+        cpu, cpu_time, memory, context_switch, fibers_time = benchmark_fibers("./kernel_test", num_fibers * i)
         kernel_cpu_list.append(cpu)
         kernel_cpu_time_list.append(cpu_time)
         kernel_memory_list.append(memory)
         kernel_context_switch_list.append(context_switch)
         kernel_fibers_time_list.append(fibers_time)
-    print("Done. Relaxing CPU before testing User-level implementation, please wait...")
+        print("Done.\n")
+    print("Relaxing CPU before testing User-level implementation, please wait...")
 
     time.sleep(30)
     print("\nTesting performance of Kernel-implemented fibers...")
-    for i in range(1, ITERATIONS + 1):
-        print("Iteration number " + str(i) + ", fibers used: " + str(BASE_FIBERS * i))
-        cpu, cpu_time, memory, context_switch, fibers_time = benchmark_fibers("./user_test", BASE_FIBERS * i)
+    for i in range(1, num_iterations + 1):
+        print("Relaxing cpu...")
+        time.sleep(5)
+        print("Iteration number " + str(i) + ", fibers used: " + str(num_fibers * i))
+        cpu, cpu_time, memory, context_switch, fibers_time = benchmark_fibers("./user_test", num_fibers * i)
         user_cpu_list.append(cpu)
         user_cpu_time_list.append(cpu_time)
         user_memory_list.append(memory)
         user_context_switch_list.append(context_switch)
         user_fibers_time_list.append(fibers_time)
+        print("Done.\n")
 
     print("Done. Benchmark finished.\n")
     print("----------Kernel-level average results----------")
@@ -134,6 +140,6 @@ def benchmark(BASE_FIBERS, ITERATIONS):
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("Usage: $python3 benchmark.py <BASE_FIBERS> <ITERATIONS>\n")
+        print("Usage: $python3 benchmark.py <num_fibers> <num_iterations>\n")
     else:
         benchmark(int(sys.argv[1]), int(sys.argv[2]))

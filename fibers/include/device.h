@@ -22,17 +22,17 @@
 extern int fibers_open(struct inode *, struct file *);
 extern int fibers_release(struct inode *, struct file *);
 extern long fibers_ioctl(struct file *, unsigned int, unsigned long);
+extern ssize_t fibers_dummy_read(struct file *, char *, size_t, loff_t *);
+extern ssize_t fibers_dummy_write(struct file *filep, const char *, size_t, loff_t *);
 
 extern int cleanup_all(void);
 extern int cleanup_process(pid_t tgid);
 
-//maybe extern?
 int fibers_register_device(void);
 int fibers_unregister_device(void);
 
 #endif /* KERNEL */
 
-//TODO: CHANGE _IO WITH OPPORTUNE TYPE!!!!!!
 #define IOCTL_NUMBER 'k'
 
 #define IOCTL_CONVERT_THREAD_TO_FIBER _IO(IOCTL_NUMBER, 0)

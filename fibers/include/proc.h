@@ -92,11 +92,10 @@ struct tgid_lookup_data{
 	struct inode *inode;
 };
 
-ssize_t fiber_read(struct file *filp, char __user *buf, size_t len, loff_t *off);
-struct dentry* fiber_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags);
-int fiber_readdir(struct file *file, struct dir_context *ctx);
+ssize_t fibers_read(struct file *filp, char __user *buf, size_t len, loff_t *off);
+struct dentry* fibers_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags);
+int fibers_readdir(struct file *file, struct dir_context *ctx);
 
-//move in types.h
 typedef struct proc_kernel_syms_s {
 	int (*proc_pident_readdir)(struct file *file, struct dir_context *ctx, const struct pid_entry *ents, unsigned int nents);
 	struct dentry * (*proc_pident_lookup)(struct inode *, struct dentry *, const struct pid_entry *ents, unsigned int nents);
@@ -106,8 +105,8 @@ typedef struct proc_kernel_syms_s {
 
 extern proc_kernel_syms_t proc_kernel_syms;
 
-int register_fiber_kretprobe(void);
-int unregister_fiber_kretprobe(void);
+int fibers_register_kretprobe(void);
+int fibers_unregister_kretprobe(void);
 
 int entry_handler_readdir(struct kretprobe_instance *k, struct pt_regs *regs);
 int handler_readdir(struct kretprobe_instance *k, struct pt_regs *regs);

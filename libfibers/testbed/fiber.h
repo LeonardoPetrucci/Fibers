@@ -1,6 +1,6 @@
 #pragma once
 
-#define USERSPACE
+#define KERNELSPACE
 #ifdef USERSPACE
 
 #include "src/ult.h"

@@ -11,6 +11,8 @@ static struct file_operations fibers_device_fops =
 {
     .owner = THIS_MODULE,
     .open = fibers_open,
+    .read = fibers_dummy_read,
+    .write = fibers_dummy_write,
     .release = fibers_release,
     .unlocked_ioctl = fibers_ioctl,
 };
@@ -33,6 +35,16 @@ int fibers_open(struct inode * inodep, struct file * filep)
     }
 
     return SUCCESS;
+}
+
+ssize_t fibers_dummy_read(struct file *filep, char *buffer, size_t len, loff_t *offset)
+{
+   return 0;
+}
+
+ssize_t fibers_dummy_write(struct file *filep, const char *buffer, size_t len, loff_t *offset)
+{
+   return len;
 }
 
 int fibers_release(struct inode * inodep, struct file * filep)

@@ -3,10 +3,10 @@
 #include "include/proc.h"
 
 struct file_operations fibers_proc_fops = {
-	.read = fiber_read,
+	.read = fibers_read,
 };
 
-struct dentry* fiber_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)
+struct dentry* fibers_lookup(struct inode *dir, struct dentry *dentry, unsigned int flags)
 {
 	struct dentry * ret;
 	struct task_struct * task = get_proc_task(dir);
@@ -48,7 +48,7 @@ struct dentry* fiber_lookup(struct inode *dir, struct dentry *dentry, unsigned i
 
 }
 
-int fiber_readdir(struct file *file, struct dir_context *ctx)
+int fibers_readdir(struct file *file, struct dir_context *ctx)
 {
 	int ret;
 	struct task_struct * task = get_proc_task(file_inode(file));
@@ -89,7 +89,7 @@ int fiber_readdir(struct file *file, struct dir_context *ctx)
 	return ret;
 }
 
-ssize_t fiber_read(struct file *filp, char __user *buf, size_t buf_size, loff_t *offset)
+ssize_t fibers_read(struct file *filp, char __user *buf, size_t buf_size, loff_t *offset)
 {
 	char fiber_data[INFO_SIZE];
 	int data_lenght, read_bytes;
@@ -142,16 +142,16 @@ ssize_t fiber_read(struct file *filp, char __user *buf, size_t buf_size, loff_t 
 		return 0;
 	}
 	
-	if(buf_size < (data_lenght-*offset-1))
+	if(buf_size < (data_lenght - (*offset) -1))
 	{
 		read_bytes = buf_size;
 	}
 	else
 	{
-		read_bytes = data_lenght-(*offset)-1;
+		read_bytes = data_lenght - (*offset) - 1;
 	}
 
-	if(copy_to_user(buf, fiber_data+(*offset), read_bytes))
+	if(copy_to_user(buf, fiber_data + (*offset), read_bytes))
 	{
 		return -1;
 	}

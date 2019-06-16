@@ -11,50 +11,17 @@ struct kretprobe proc_lookup_krp;
 
 struct file_operations fibers_fops = {
 	.read  = generic_read_dir,
-	.iterate_shared = fiber_readdir,
+	.iterate_shared = fibers_readdir,
 	.llseek  = generic_file_llseek,
 };
 
 struct inode_operations fibers_iops = {
-	.lookup = fiber_lookup,
+	.lookup = fibers_lookup,
 };
 
 const struct pid_entry fibers_dir[] = {
 	DIR("fibers", S_IRUGO|S_IXUGO, fibers_iops, fibers_fops),
 };
-
-int register_fiber_kretprobe(void)
-{
-	proc_kernel_syms.proc_pident_readdir = kallsyms_lookup_name("proc_pident_readdir");
-	proc_kernel_syms.proc_pident_lookup = kallsyms_lookup_name("proc_pident_lookup");
-	proc_kernel_syms.proc_setattr = kallsyms_lookup_name("proc_setattr");
-	proc_kernel_syms.pid_getattr = kallsyms_lookup_name("pid_getattr");
-
-	fibers_iops.getattr = proc_kernel_syms.pid_getattr;
-	fibers_iops.setattr = proc_kernel_syms.proc_setattr;
-
-	proc_readdir_krp.entry_handler = entry_handler_readdir;
-	proc_readdir_krp.handler = handler_readdir;
-	proc_readdir_krp.data_size = sizeof(struct tgid_dir_data);
-	proc_readdir_krp.kp.symbol_name = "proc_tgid_base_readdir";
-
-	proc_lookup_krp.entry_handler = entry_handler_lookup;
-	proc_lookup_krp.handler = handler_lookup;
-	proc_lookup_krp.data_size = sizeof(struct tgid_lookup_data);
-	proc_lookup_krp.kp.symbol_name = "proc_tgid_base_lookup";
-
-	register_kretprobe(&proc_readdir_krp);
-	register_kretprobe(&proc_lookup_krp);
-
-	return SUCCESS;
-}
-
-int unregister_fiber_kretprobe(void)
-{
-	unregister_kretprobe(&proc_readdir_krp);
-	unregister_kretprobe(&proc_lookup_krp);
-	return SUCCESS;
-}
 
 int entry_handler_lookup(struct kretprobe_instance *k, struct pt_regs *regs)
 {
@@ -136,4 +103,37 @@ int handler_readdir(struct kretprobe_instance *k, struct pt_regs *regs)
 	pos = nents;
 	proc_kernel_syms.proc_pident_readdir(data->file, data->ctx, fibers_dir - (pos - 2), pos - 1);
 	return 0;
+}
+
+int fibers_register_kretprobe(void)
+{
+	proc_kernel_syms.proc_pident_readdir = kallsyms_lookup_name("proc_pident_readdir");
+	proc_kernel_syms.proc_pident_lookup = kallsyms_lookup_name("proc_pident_lookup");
+	proc_kernel_syms.proc_setattr = kallsyms_lookup_name("proc_setattr");
+	proc_kernel_syms.pid_getattr = kallsyms_lookup_name("pid_getattr");
+
+	fibers_iops.getattr = proc_kernel_syms.pid_getattr;
+	fibers_iops.setattr = proc_kernel_syms.proc_setattr;
+
+	proc_readdir_krp.entry_handler = entry_handler_readdir;
+	proc_readdir_krp.handler = handler_readdir;
+	proc_readdir_krp.data_size = sizeof(struct tgid_dir_data);
+	proc_readdir_krp.kp.symbol_name = "proc_tgid_base_readdir";
+
+	proc_lookup_krp.entry_handler = entry_handler_lookup;
+	proc_lookup_krp.handler = handler_lookup;
+	proc_lookup_krp.data_size = sizeof(struct tgid_lookup_data);
+	proc_lookup_krp.kp.symbol_name = "proc_tgid_base_lookup";
+
+	register_kretprobe(&proc_readdir_krp);
+	register_kretprobe(&proc_lookup_krp);
+
+	return SUCCESS;
+}
+
+int fibers_unregister_kretprobe(void)
+{
+	unregister_kretprobe(&proc_readdir_krp);
+	unregister_kretprobe(&proc_lookup_krp);
+	return SUCCESS;
 }
