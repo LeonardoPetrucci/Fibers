@@ -41,9 +41,8 @@ int handler_lookup(struct kretprobe_instance *k, struct pt_regs *regs)
 
 	struct tgid_lookup_data *data = (struct tgid_lookup_data *)(k->data);
 	struct thread_group *tg;
-	//unsigned long flags;
 	unsigned int pos;
-	struct task_struct * task = get_pid_task(proc_pid(data->inode), PIDTYPE_PID);
+	struct task_struct * task = get_proc_task(data->inode);
 
 	tg = get_group(task->tgid);
 	if (!tg)
@@ -82,7 +81,7 @@ int handler_readdir(struct kretprobe_instance *k, struct pt_regs *regs)
 	struct thread_group *tg;
 	unsigned long flags;
 	unsigned int pos;
-	struct task_struct * task = get_pid_task(proc_pid(file_inode(data->file)), PIDTYPE_PID);
+	struct task_struct * task = get_proc_task(file_inode(data->file));
 
 	if (nents == 0)
 	{
