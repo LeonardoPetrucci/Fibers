@@ -1,0 +1,13 @@
+----------Kernel-level average results----------
+CPU time: 7.287372077922079
+CPU usage percentage: 86.13836327561327
+Memory usage percentage: 0.03410195809618742
+Number of context switches: 159.5
+Fibers working time: 0.394117
+
+-----------User-level average results-----------
+CPU time: 6.325081349206349
+CPU usage percentage: 91.52433333333332
+Memory usage percentage: 0.035795574290211435
+Number of context switches: 118.5
+Fibers working time: 0.3435956
