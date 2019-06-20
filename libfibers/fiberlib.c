@@ -13,7 +13,6 @@ pid_t Convert_thread_to_fiber(void)
         #ifdef VERBOSE
         printf("Critical error: cannot open fibers device.\n");
         #endif
-        close(fd);
         exit(-ENOENT);
     }
     ret = ioctl(fd, IOCTL_CONVERT_THREAD_TO_FIBER, 0);
